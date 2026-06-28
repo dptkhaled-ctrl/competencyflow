@@ -46,13 +46,37 @@ STEP 5 — ADD REDIRECT URL (FOR EMAIL LINKS)
    https://competencyflow.vercel.app/auth/callback
 
 
-STEP 6 — ADD KEYS TO VERCEL
+STEP 6 — ADD SERVICE ROLE KEY (REQUIRED FOR SAVING DATA)
+--------------------------------------------------------
+1. In Supabase: Project Settings → API
+2. Copy "service_role" key (secret — never put in browser code)
+3. Add to .env.local and Vercel as:
+   SUPABASE_SERVICE_ROLE_KEY = (your service role key)
+
+This stores organizations, users, and files in Supabase Storage so they
+don't disappear on Vercel.
+
+
+STEP 7 — ADD KEYS TO VERCEL
 ---------------------------
 1. Go to vercel.com → your competencyflow project → Settings → Environment Variables
 2. Add:
-   NEXT_PUBLIC_SUPABASE_URL     = (your Project URL)
+   NEXT_PUBLIC_SUPABASE_URL      = (your Project URL)
    NEXT_PUBLIC_SUPABASE_ANON_KEY = (your anon key)
+   SUPABASE_SERVICE_ROLE_KEY   = (your service role key)
 3. Redeploy (or tell the AI assistant to redeploy)
+
+
+STEP 8 — AUTOMATIC INVITE EMAILS (OPTIONAL BUT RECOMMENDED)
+-----------------------------------------------------------
+Supabase's built-in email has strict rate limits. For seamless invites:
+
+1. Sign up free at https://resend.com
+2. Create an API key
+3. Add to Vercel:
+   RESEND_API_KEY = (your Resend key)
+   EMAIL_FROM     = CompetencyFlow <onboarding@yourdomain.com>
+   (Use onboarding@resend.dev for testing before you verify a domain)
 
 
 THAT'S IT

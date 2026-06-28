@@ -1,10 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
 import { createAdminClient, hasServiceRoleKey } from "@/lib/supabase/admin";
 import {
-  getSupabaseAnonKey,
-  getSupabaseUrl,
-  isSupabaseConfigured,
-} from "@/lib/supabase/config";
+  inviteEmailContent,
+  isEmailDeliveryConfigured,
+  loginEmailContent,
+  sendTransactionalEmail,
+} from "@/lib/auth/email-sender";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { Invite } from "@/lib/types";
 
 function siteUrl() {
@@ -47,9 +48,22 @@ export async function getCopyableMagicLink(
   return null;
 }
 
+async function getLoginMagicLink(email: string): Promise<string | null> {
+  if (!hasServiceRoleKey()) return null;
+  const admin = createAdminClient();
+  const redirectTo = `${siteUrl()}/auth/callback`;
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email: email.trim().toLowerCase(),
+    options: { redirectTo },
+  });
+  if (error || !data?.properties?.action_link) return null;
+  return data.properties.action_link;
+}
+
 export async function sendInviteEmail(invite: Invite): Promise<{
   ok: boolean;
-  method: "invite" | "otp" | "manual";
+  method: "resend" | "supabase" | "manual";
   error?: string;
   rateLimited?: boolean;
 }> {
@@ -57,10 +71,34 @@ export async function sendInviteEmail(invite: Invite): Promise<{
     return { ok: false, method: "manual", error: "Supabase not configured" };
   }
 
-  const redirectTo = inviteRedirectUrl(invite.token);
+  const magicLink = await getCopyableMagicLink(invite);
+  if (!magicLink) {
+    return {
+      ok: false,
+      method: "manual",
+      error: "Could not generate activation link",
+    };
+  }
 
+  if (isEmailDeliveryConfigured()) {
+    const content = inviteEmailContent({
+      name: invite.name,
+      magicLink,
+    });
+    const sent = await sendTransactionalEmail({
+      to: invite.email,
+      ...content,
+    });
+    if (sent.ok) {
+      return { ok: true, method: "resend" };
+    }
+    return { ok: false, method: "resend", error: sent.error };
+  }
+
+  // Last resort: Supabase built-in email (rate-limited on free tier)
   if (hasServiceRoleKey()) {
     const admin = createAdminClient();
+    const redirectTo = inviteRedirectUrl(invite.token);
     const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
       invite.email,
       {
@@ -75,58 +113,62 @@ export async function sendInviteEmail(invite: Invite): Promise<{
     );
 
     if (!inviteError) {
-      return { ok: true, method: "invite" };
+      return { ok: true, method: "supabase" };
     }
 
     if (isRateLimitError(inviteError.message)) {
       return {
         ok: false,
-        method: "invite",
+        method: "supabase",
         error: inviteError.message,
         rateLimited: true,
       };
     }
   }
 
-  const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey());
-  const { error: otpError } = await supabase.auth.signInWithOtp({
-    email: invite.email,
-    options: {
-      shouldCreateUser: true,
-      emailRedirectTo: redirectTo,
-      data: {
-        full_name: invite.name,
-        role: invite.role,
-        org_id: invite.orgId,
-        invite_token: invite.token,
-      },
-    },
-  });
-
-  if (otpError) {
-    return {
-      ok: false,
-      method: "otp",
-      error: otpError.message,
-      rateLimited: isRateLimitError(otpError.message),
-    };
-  }
-
-  return { ok: true, method: "otp" };
+  return {
+    ok: false,
+    method: "manual",
+    error: "Email delivery not configured. Add RESEND_API_KEY for automatic invites.",
+  };
 }
 
 export async function sendLoginMagicLink(email: string): Promise<{
   ok: boolean;
   error?: string;
+  rateLimited?: boolean;
+  magicLink?: string;
 }> {
   if (!isSupabaseConfigured()) {
     return { ok: false, error: "Supabase not configured" };
   }
 
   const normalized = email.trim().toLowerCase();
-  const redirectTo = `${siteUrl()}/auth/callback`;
+  const magicLink = await getLoginMagicLink(normalized);
 
+  if (!magicLink) {
+    return { ok: false, error: "Could not generate sign-in link" };
+  }
+
+  if (isEmailDeliveryConfigured()) {
+    const content = loginEmailContent({ magicLink });
+    const sent = await sendTransactionalEmail({
+      to: normalized,
+      ...content,
+    });
+    if (sent.ok) {
+      return { ok: true };
+    }
+    return { ok: false, error: sent.error };
+  }
+
+  // Fallback: Supabase OTP (rate-limited)
+  const { createClient } = await import("@supabase/supabase-js");
+  const { getSupabaseAnonKey, getSupabaseUrl } = await import(
+    "@/lib/supabase/config"
+  );
   const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey());
+  const redirectTo = `${siteUrl()}/auth/callback`;
 
   let { error } = await supabase.auth.signInWithOtp({
     email: normalized,
@@ -153,9 +195,11 @@ export async function sendLoginMagicLink(email: string): Promise<{
       return {
         ok: false,
         error: "Too many emails sent. Wait 10–15 minutes and try again.",
+        rateLimited: true,
+        magicLink,
       };
     }
-    return { ok: false, error: error.message };
+    return { ok: false, error: error.message, magicLink };
   }
 
   return { ok: true };

@@ -45,6 +45,7 @@ export default function AdminDatabasePage() {
   const [uploadedMaterials, setUploadedMaterials] = useState<UploadedMaterial[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [testingUserId, setTestingUserId] = useState<string | null>(null);
 
   const managerRequestedMaterials = uploadedMaterials.filter(
@@ -180,18 +181,20 @@ export default function AdminDatabasePage() {
   const createOrg = async () => {
     if (!orgForm.name.trim() || !orgForm.industry.trim()) return;
     setSaving(true);
+    setStatusMessage(null);
     try {
       const res = await fetch("/api/admin/organizations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orgForm),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json();
-        alert(err.error ?? "Failed to create organization");
+        alert(data.error ?? "Failed to create organization");
         return;
       }
       setOrgForm({ name: "", industry: "", orgType: "snf", teamName: "Main Team" });
+      setStatusMessage(`Created "${data.org?.name ?? orgForm.name}" — saved permanently.`);
       load();
       await refreshGlobalStore();
     } finally {
@@ -357,6 +360,11 @@ export default function AdminDatabasePage() {
         <p className="text-sm text-muted-foreground">
           Full control over clients, teams, staff, and managers
         </p>
+        {statusMessage && (
+          <p className="mt-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+            {statusMessage}
+          </p>
+        )}
       </div>
 
       {/* Dedicated pure section for requested lessons (from manager submit materials flow).

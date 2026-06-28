@@ -3,6 +3,7 @@ import {
   getCopyableMagicLink,
   sendInviteEmail,
 } from "@/lib/auth/mailer";
+import { isEmailDeliveryConfigured } from "@/lib/auth/email-sender";
 import type { Invite } from "@/lib/types";
 
 export type InviteDeliveryResult = {
@@ -33,15 +34,16 @@ export async function deliverInvite(invite: Invite): Promise<InviteDeliveryResul
   const magicLink = await getCopyableMagicLink(invite);
   const manualLink = magicLink ?? inviteLink;
 
-  if (mail.rateLimited) {
+  if (mail.rateLimited || !isEmailDeliveryConfigured()) {
     return {
       ok: true,
       emailSent: false,
-      rateLimited: true,
+      rateLimited: mail.rateLimited,
       inviteLink,
       magicLink: manualLink,
-      message:
-        "Supabase email limit reached (too many emails in a short time). Copy the link below and send it to them yourself — text, Slack, or your own email.",
+      message: isEmailDeliveryConfigured()
+        ? "Supabase email limit reached. Copy the link below and send it manually."
+        : "Invite created. Copy the activation link below and send it to them (email auto-send needs RESEND_API_KEY in Vercel).",
       invite,
     };
   }

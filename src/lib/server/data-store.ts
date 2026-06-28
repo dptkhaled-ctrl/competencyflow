@@ -3,6 +3,14 @@ import path from "path";
 import { updateMasteryFromAssessment, getOrCreateRecord } from "@/lib/competency/mastery";
 import { mergeExtractedDomains } from "@/lib/competency/domains";
 import {
+  deleteUploadFromCloud,
+  isCloudPersistenceEnabled,
+  readPlatformFromCloud,
+  readUploadFromCloud,
+  saveUploadToCloud,
+  writePlatformToCloud,
+} from "@/lib/server/cloud-persistence";
+import {
   createInitialPlatformData,
   migratePlatformData,
 } from "@/lib/server/seed-platform";
@@ -33,6 +41,29 @@ async function ensureDirs() {
 }
 
 export async function readPlatform(): Promise<PlatformData> {
+  if (isCloudPersistenceEnabled()) {
+    try {
+      const cloud = await readPlatformFromCloud();
+      if (cloud) {
+        const migrated = migratePlatformData(cloud);
+        const needsWrite =
+          !cloud.competencyDomains ||
+          !cloud.tutorMessages ||
+          !cloud.organizations?.[0]?.orgType ||
+          JSON.stringify(migrated) !== JSON.stringify(cloud);
+        if (needsWrite) {
+          await writePlatform(migrated);
+        }
+        return migrated;
+      }
+      const initial = migratePlatformData(createInitialPlatformData());
+      await writePlatform(initial);
+      return initial;
+    } catch (err) {
+      console.error("[readPlatform] cloud read failed, falling back to local:", err);
+    }
+  }
+
   await ensureDirs();
   try {
     const raw = await fs.readFile(PLATFORM_FILE, "utf-8");
@@ -59,6 +90,11 @@ export async function readPlatform(): Promise<PlatformData> {
 }
 
 export async function writePlatform(data: PlatformData): Promise<void> {
+  if (isCloudPersistenceEnabled()) {
+    await writePlatformToCloud(data);
+    return;
+  }
+
   await ensureDirs();
   await fs.writeFile(PLATFORM_FILE, JSON.stringify(data, null, 2), "utf-8");
 }
@@ -69,12 +105,29 @@ export async function saveUploadFile(
   fileName: string,
   buffer: Buffer
 ): Promise<string> {
+  if (isCloudPersistenceEnabled()) {
+    return saveUploadToCloud(orgId, fileId, fileName, buffer);
+  }
+
   const orgDir = path.join(UPLOADS_DIR, orgId);
   await fs.mkdir(orgDir, { recursive: true });
   const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storagePath = path.join(orgDir, `${fileId}-${safeName}`);
   await fs.writeFile(storagePath, buffer);
   return storagePath;
+}
+
+export async function readUploadFile(storagePath: string): Promise<Buffer | null> {
+  if (!storagePath) return null;
+  if (isCloudPersistenceEnabled()) {
+    const cloud = await readUploadFromCloud(storagePath);
+    if (cloud) return cloud;
+  }
+  try {
+    return await fs.readFile(storagePath);
+  } catch {
+    return null;
+  }
 }
 
 export async function addUploadedMaterial(
@@ -344,10 +397,16 @@ export async function deleteUploadedMaterial(
   data.documentChunks = data.documentChunks.filter((c) => c.documentId !== materialId);
   data.uploadedMaterials = data.uploadedMaterials.filter((m) => m.id !== materialId);
 
-  try {
-    await fs.unlink(material.storagePath);
-  } catch {
-    // File may already be missing on disk
+  if (material.storagePath) {
+    if (isCloudPersistenceEnabled()) {
+      await deleteUploadFromCloud(material.storagePath);
+    } else {
+      try {
+        await fs.unlink(material.storagePath);
+      } catch {
+        // File may already be missing on disk
+      }
+    }
   }
 
   await writePlatform(data);

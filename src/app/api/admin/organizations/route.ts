@@ -11,27 +11,49 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { name, industry, orgType, teamName } = body as {
-    name?: string;
-    industry?: string;
-    orgType?: OrgType;
-    teamName?: string;
-  };
+  try {
+    const body = await request.json();
+    const { name, industry, orgType, teamName } = body as {
+      name?: string;
+      industry?: string;
+      orgType?: OrgType;
+      teamName?: string;
+    };
 
-  if (!name?.trim() || !industry?.trim()) {
+    if (!name?.trim() || !industry?.trim()) {
+      return NextResponse.json(
+        { error: "Name and industry are required" },
+        { status: 400 }
+      );
+    }
+
+    const result = await createOrganization({
+      name,
+      industry,
+      orgType: orgType ?? "snf",
+      teamName,
+    });
+
+    const data = await readPlatform();
+    const saved = data.organizations.some((o) => o.id === result.org.id);
+    if (!saved) {
+      return NextResponse.json(
+        { error: "Organization could not be saved. Please try again." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(result, { status: 201 });
+  } catch (err) {
+    console.error("[admin/organizations POST]", err);
     return NextResponse.json(
-      { error: "Name and industry are required" },
-      { status: 400 }
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : "Failed to create organization. Please try again.",
+      },
+      { status: 500 }
     );
   }
-
-  const result = await createOrganization({
-    name,
-    industry,
-    orgType: orgType ?? "snf",
-    teamName,
-  });
-
-  return NextResponse.json(result, { status: 201 });
 }

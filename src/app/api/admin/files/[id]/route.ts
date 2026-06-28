@@ -1,9 +1,9 @@
-import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import {
   clearManagerRequestFlags,
   deleteUploadedMaterial,
   readPlatform,
+  readUploadFile,
 } from "@/lib/server/data-store";
 
 export async function GET(
@@ -17,19 +17,19 @@ export async function GET(
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
-  try {
-    const buffer = await fs.readFile(material.storagePath);
-    const safeName = material.fileName.replace(/[^\w.\-() ]+/g, "_") || "download";
-    return new NextResponse(new Uint8Array(buffer), {
-      headers: {
-        "Content-Type": material.mimeType || "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(material.fileName)}`,
-        "Cache-Control": "no-store",
-      },
-    });
-  } catch {
-    return NextResponse.json({ error: "File missing on disk" }, { status: 404 });
+  const buffer = await readUploadFile(material.storagePath);
+  if (!buffer) {
+    return NextResponse.json({ error: "File missing in storage" }, { status: 404 });
   }
+
+  const safeName = material.fileName.replace(/[^\w.\-() ]+/g, "_") || "download";
+  return new NextResponse(new Uint8Array(buffer), {
+    headers: {
+      "Content-Type": material.mimeType || "application/octet-stream",
+      "Content-Disposition": `attachment; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(material.fileName)}`,
+      "Cache-Control": "no-store",
+    },
+  });
 }
 
 export async function PATCH(
