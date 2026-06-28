@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { TeamMemberRow } from "@/components/manager/team-member-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildTeamMemberStatuses } from "@/lib/analytics/team";
@@ -19,7 +19,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import type { LessonAssignment, TeamMemberStatus, User } from "@/lib/types";
+import {
+  InviteResultsPanel,
+  type InviteResultRow,
+} from "@/components/auth/invite-results";
+import { CopyInviteLink } from "@/components/auth/copy-invite-link";
+import { Loader2 } from "lucide-react";
+import type { Invite, LessonAssignment, TeamMemberStatus, User } from "@/lib/types";
 
 export default function ManagerTeamPage() {
   const user = useCurrentUser();
@@ -54,10 +60,28 @@ export default function ManagerTeamPage() {
   // Add staff uses the multi-row experience (the only add flow now)
   const [showBulkDialog, setShowBulkDialog] = useState(false);
   const [bulkRows, setBulkRows] = useState<Array<{name: string, email: string, jobTitle: string}>>([{name: '', email: '', jobTitle: ''}]);
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteResults, setInviteResults] = useState<InviteResultRow[] | null>(null);
+  const [pendingInvites, setPendingInvites] = useState<Array<Invite & { inviteLink?: string }>>([]);
 
   const [selectedStaff, setSelectedStaff] = useState<TeamMemberStatus | null>(null);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [selectedInterval, setSelectedInterval] = useState(90);
+
+  const loadPendingInvites = useCallback(() => {
+    fetch("/api/manager/invites")
+      .then((r) => r.json())
+      .then((data) => {
+        setPendingInvites(
+          (data.invites ?? []).filter((i: Invite) => i.status === "pending")
+        );
+      })
+      .catch(() => setPendingInvites([]));
+  }, []);
+
+  useEffect(() => {
+    loadPendingInvites();
+  }, [loadPendingInvites]);
 
   const openStaffDetail = (member: TeamMemberStatus) => {
     setSelectedStaff(member);
@@ -159,8 +183,39 @@ export default function ManagerTeamPage() {
           <h1 className="text-2xl font-bold">Team</h1>
           <p className="text-sm text-muted-foreground">{team.name} — completion &amp; competency gaps</p>
         </div>
-        <Button onClick={() => setShowBulkDialog(true)}>Invite staff</Button>
+        <Button
+          onClick={() => {
+            setInviteResults(null);
+            setShowBulkDialog(true);
+          }}
+        >
+          Invite staff
+        </Button>
       </div>
+
+      {pendingInvites.length > 0 && (
+        <Card className="border-amber-700/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Pending staff invites</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Copy a link and send it to staff if they haven&apos;t joined yet.
+            </p>
+            {pendingInvites.map((inv) => (
+              <div key={inv.id} className="rounded-lg border p-3 text-sm">
+                <p className="font-medium">
+                  {inv.name}{" "}
+                  <span className="text-muted-foreground">({inv.email})</span>
+                </p>
+                {inv.inviteLink && (
+                  <CopyInviteLink link={inv.inviteLink} label="Staff invite link" />
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -190,13 +245,19 @@ export default function ManagerTeamPage() {
       {/* Single-add dialog removed per request — only the multi-row add experience is used now */}
 
       {/* Add Staff Dialog (multi-row) */}
-      <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
-        <DialogContent className="max-w-3xl">
+      <Dialog
+        open={showBulkDialog}
+        onOpenChange={(open) => {
+          setShowBulkDialog(open);
+          if (!open) setInviteResults(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Invite staff</DialogTitle>
             <DialogDescription>
-              Each person receives a professional activation email with a secure magic link.
-              They must use that link to join — accounts are invite-only.
+              Staff open their invite link, create a password, and sign in. Copy links
+              below if email doesn&apos;t arrive — no Supabase upgrade needed.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-[60vh] overflow-auto border rounded p-2">
@@ -257,61 +318,98 @@ export default function ManagerTeamPage() {
               </div>
             ))}
           </div>
-          <div className="flex gap-2">
-            <Button 
-              onClick={async () => {
-                const valid = bulkRows.filter(r => r.name.trim() && r.email.trim() && r.jobTitle);
-                if (valid.length === 0) return alert("Add at least one complete row (name, email, title).");
-                let sent = 0;
-                const manualLinks: string[] = [];
-                const errors: string[] = [];
-                for (const row of valid) {
-                  try {
-                    const res = await fetch("/api/manager/invites", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        name: row.name.trim(),
-                        email: row.email.trim(),
-                        jobTitle: row.jobTitle,
-                      }),
-                    });
-                    const text = await res.text();
-                    const data = text ? JSON.parse(text) : {};
-                    if (res.ok) {
-                      sent += 1;
-                      if (!data.emailSent && (data.magicLink || data.inviteLink)) {
-                        manualLinks.push(
-                          `${row.email}: ${data.magicLink ?? data.inviteLink}`
-                        );
+          {inviteResults && <InviteResultsPanel results={inviteResults} />}
+
+          <div className="flex gap-2 pt-2">
+            {inviteResults ? (
+              <Button
+                onClick={() => {
+                  setBulkRows([{ name: "", email: "", jobTitle: "" }]);
+                  setInviteResults(null);
+                  setShowBulkDialog(false);
+                  loadPendingInvites();
+                }}
+              >
+                Done
+              </Button>
+            ) : (
+              <>
+                <Button
+                  disabled={inviteSending}
+                  onClick={async () => {
+                    const valid = bulkRows.filter(
+                      (r) => r.name.trim() && r.email.trim() && r.jobTitle
+                    );
+                    if (valid.length === 0) return;
+                    setInviteSending(true);
+                    const results: InviteResultRow[] = [];
+                    for (const row of valid) {
+                      try {
+                        const res = await fetch("/api/manager/invites", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            name: row.name.trim(),
+                            email: row.email.trim(),
+                            jobTitle: row.jobTitle,
+                          }),
+                        });
+                        const text = await res.text();
+                        const data = text ? JSON.parse(text) : {};
+                        const link = data.magicLink ?? data.inviteLink;
+                        if (res.ok) {
+                          results.push({
+                            name: row.name.trim(),
+                            email: row.email.trim(),
+                            ok: true,
+                            emailSent: Boolean(data.emailSent),
+                            inviteLink: link,
+                            message: data.message,
+                          });
+                        } else {
+                          results.push({
+                            name: row.name.trim(),
+                            email: row.email.trim(),
+                            ok: false,
+                            inviteLink: link,
+                            error: data.error ?? "Failed to create invite",
+                          });
+                        }
+                      } catch {
+                        results.push({
+                          name: row.name.trim(),
+                          email: row.email.trim(),
+                          ok: false,
+                          error: "Network error — try again",
+                        });
                       }
-                    } else {
-                      const link = data.magicLink ?? data.inviteLink;
-                      if (link) manualLinks.push(`${row.email}: ${link}`);
-                      errors.push(`${row.email}: ${data.error ?? "failed"}`);
                     }
-                  } catch {
-                    errors.push(`${row.email}: network error`);
-                  }
-                }
-                let msg =
-                  sent > 0
-                    ? manualLinks.length > 0
-                      ? `Created ${sent} invite(s). Email limit reached — copy the links below and send them yourself.`
-                      : `Sent ${sent} invite email${sent > 1 ? "s" : ""}. Staff will appear after they activate their account.`
-                    : "Could not send invites.";
-                if (manualLinks.length) {
-                  msg += `\n\nCopy and send these links manually:\n${manualLinks.join("\n")}`;
-                }
-                if (errors.length) msg += `\n\n${errors.join("\n")}`;
-                alert(msg);
-                setBulkRows([{name:'', email:'', jobTitle:''}]);
-                setShowBulkDialog(false);
-              }}
-            >
-              Send invite emails
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => { setBulkRows([{name:'', email:'', jobTitle:''}]); setShowBulkDialog(false); }}>Cancel</Button>
+                    setInviteResults(results);
+                    setInviteSending(false);
+                  }}
+                >
+                  {inviteSending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Creating invites…
+                    </>
+                  ) : (
+                    "Create invites"
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setBulkRows([{ name: "", email: "", jobTitle: "" }]);
+                    setInviteResults(null);
+                    setShowBulkDialog(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
