@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { TutorialOverlay } from "@/components/tutorial/tutorial-overlay";
 import { useCurrentUser } from "@/lib/store/hooks";
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
@@ -14,6 +15,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="mx-auto max-w-lg px-4 pb-6 pt-2 md:max-w-xl">
+      <TutorialOverlay role="staff" />
       {children}
     </div>
   );

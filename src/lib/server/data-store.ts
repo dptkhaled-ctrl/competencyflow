@@ -8,10 +8,12 @@ import {
 } from "@/lib/server/seed-platform";
 import { DATA_DIR, PLATFORM_FILE, UPLOADS_DIR } from "@/lib/server/paths";
 import { defaultDomainsForOrg, slugify } from "@/lib/competency/domains";
+import { randomBytes } from "crypto";
 import type {
   AssessmentEvent,
   CompetencyDomain,
   DocumentChunk,
+  Invite,
   Lesson,
   LessonAssignment,
   LessonRequest,
@@ -740,6 +742,125 @@ export async function linkAuthUser(input: {
   return data.users[index];
 }
 
+function ensureInvites(data: PlatformData): PlatformData {
+  if (!data.invites) data.invites = [];
+  return data;
+}
+
+export async function getInviteByToken(
+  token: string
+): Promise<(Invite & { orgName?: string; teamName?: string }) | null> {
+  const data = ensureInvites(await readPlatform());
+  const invite = data.invites.find((i) => i.token === token);
+  if (!invite) return null;
+  if (invite.status !== "pending") return null;
+  if (new Date(invite.expiresAt) < new Date()) return null;
+
+  const org = data.organizations.find((o) => o.id === invite.orgId);
+  const team = data.teams.find((t) => t.id === invite.teamId);
+  return {
+    ...invite,
+    orgName: org?.name,
+    teamName: team?.name,
+  };
+}
+
+export async function createInvite(input: {
+  email: string;
+  name: string;
+  role: UserRole;
+  orgId: string;
+  teamId: string;
+  jobTitle?: string;
+  priorityCategories?: string[];
+  invitedByUserId?: string;
+  invitedByAdmin?: boolean;
+}): Promise<Invite | null> {
+  const data = ensureInvites(await readPlatform());
+  if (!data.organizations.some((o) => o.id === input.orgId)) return null;
+  if (!data.teams.some((t) => t.id === input.teamId && t.orgId === input.orgId)) {
+    return null;
+  }
+
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const existingPending = data.invites.find(
+    (i) =>
+      i.email === normalizedEmail &&
+      i.status === "pending" &&
+      new Date(i.expiresAt) > new Date()
+  );
+  if (existingPending) return existingPending;
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 14);
+
+  const invite: Invite = {
+    id: `inv-${Date.now().toString(36)}`,
+    token: randomBytes(24).toString("hex"),
+    email: normalizedEmail,
+    name: input.name.trim(),
+    role: input.role,
+    orgId: input.orgId,
+    teamId: input.teamId,
+    jobTitle: input.jobTitle,
+    priorityCategories: input.priorityCategories,
+    invitedByUserId: input.invitedByUserId,
+    invitedByAdmin: input.invitedByAdmin,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+    expiresAt: expiresAt.toISOString(),
+  };
+
+  data.invites.push(invite);
+  await writePlatform(data);
+  return invite;
+}
+
+export async function acceptInvite(
+  token: string,
+  authUserId: string,
+  authEmail?: string
+): Promise<User | null> {
+  const data = ensureInvites(await readPlatform());
+  const invite = data.invites.find((i) => i.token === token);
+  if (!invite || invite.status !== "pending") return null;
+  if (new Date(invite.expiresAt) < new Date()) return null;
+  if (
+    authEmail &&
+    authEmail.trim().toLowerCase() !== invite.email.trim().toLowerCase()
+  ) {
+    return null;
+  }
+
+  const user = await provisionAuthUser({
+    authUserId,
+    name: invite.name,
+    email: invite.email,
+    role: invite.role,
+    orgId: invite.orgId,
+    teamId: invite.teamId,
+    jobTitle: invite.jobTitle,
+    priorityCategories: invite.priorityCategories,
+  });
+
+  if (!user) return null;
+
+  invite.status = "accepted";
+  invite.acceptedAt = new Date().toISOString();
+  await writePlatform(data);
+  return user;
+}
+
+export async function listInvitesForOrg(
+  orgId: string,
+  role?: UserRole
+): Promise<Invite[]> {
+  const data = ensureInvites(await readPlatform());
+  return data.invites.filter(
+    (i) => i.orgId === orgId && (!role || i.role === role)
+  );
+}
+
 export async function provisionAuthUser(input: {
   authUserId: string;
   name: string;
@@ -748,6 +869,8 @@ export async function provisionAuthUser(input: {
   role: UserRole;
   orgId?: string;
   teamId?: string;
+  jobTitle?: string;
+  priorityCategories?: string[];
 }): Promise<User | null> {
   const existing = await findUserByAuthUserId(input.authUserId);
   if (existing) return existing;
@@ -780,6 +903,8 @@ export async function provisionAuthUser(input: {
     name: input.name,
     email: input.email?.trim() || `${input.authUserId}@competencyflow.local`,
     role: input.role,
+    jobTitle: input.jobTitle,
+    priorityCategories: input.priorityCategories,
   }).then(async (user) => {
     if (!user) return null;
     return linkAuthUser({

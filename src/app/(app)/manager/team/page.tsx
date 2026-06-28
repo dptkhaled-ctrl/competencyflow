@@ -159,7 +159,7 @@ export default function ManagerTeamPage() {
           <h1 className="text-2xl font-bold">Team</h1>
           <p className="text-sm text-muted-foreground">{team.name} — completion &amp; competency gaps</p>
         </div>
-        <Button onClick={() => setShowBulkDialog(true)}>Add Staff</Button>
+        <Button onClick={() => setShowBulkDialog(true)}>Invite staff</Button>
       </div>
 
       <Card>
@@ -193,8 +193,11 @@ export default function ManagerTeamPage() {
       <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Add Staff</DialogTitle>
-            <DialogDescription>Add one or more staff. Choose job title for each row — categories are assigned automatically based on the role.</DialogDescription>
+            <DialogTitle>Invite staff</DialogTitle>
+            <DialogDescription>
+              Each person receives a professional activation email with a secure magic link.
+              They must use that link to join — accounts are invite-only.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-[60vh] overflow-auto border rounded p-2">
             <div className="grid grid-cols-12 gap-2 text-xs font-medium px-1">
@@ -259,40 +262,37 @@ export default function ManagerTeamPage() {
               onClick={async () => {
                 const valid = bulkRows.filter(r => r.name.trim() && r.email.trim() && r.jobTitle);
                 if (valid.length === 0) return alert("Add at least one complete row (name, email, title).");
-                let added = 0;
+                let sent = 0;
+                const errors: string[] = [];
                 for (const row of valid) {
-                  const priorities = getDefaultPrioritiesForRole(org?.orgType || "snf", row.jobTitle, orgCategories);
                   try {
-                    const res = await fetch("/api/manager/users", {
+                    const res = await fetch("/api/manager/invites", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        action: "add",
-                        orgId: user.orgId,
-                        teamId: user.teamId,
                         name: row.name.trim(),
                         email: row.email.trim(),
                         jobTitle: row.jobTitle,
-                        priorityCategories: priorities,
                       }),
                     });
-                    const data = await res.json();
-                    if (res.ok && data.user) {
-                      addStaff(data.user);
-                      mergePlatformData({ users: [data.user] });
-                      added += 1;
-                    }
+                    const text = await res.text();
+                    const data = text ? JSON.parse(text) : {};
+                    if (res.ok) sent += 1;
+                    else errors.push(`${row.email}: ${data.error ?? "failed"}`);
                   } catch {
-                    // continue with remaining rows
+                    errors.push(`${row.email}: network error`);
                   }
                 }
-                await useAppStore.getState().hydrateFromServer();
-                alert(added > 0 ? `Added ${added} staff. They appear on the home page and role switcher.` : "Could not add staff. Check the server is running.");
+                const msg =
+                  sent > 0
+                    ? `Sent ${sent} invite email${sent > 1 ? "s" : ""}. Staff will appear after they activate their account.`
+                    : "Could not send invites.";
+                alert(errors.length ? `${msg}\n\n${errors.join("\n")}` : msg);
                 setBulkRows([{name:'', email:'', jobTitle:''}]);
                 setShowBulkDialog(false);
               }}
             >
-              Add Staff
+              Send invite emails
             </Button>
             <Button variant="ghost" size="sm" onClick={() => { setBulkRows([{name:'', email:'', jobTitle:''}]); setShowBulkDialog(false); }}>Cancel</Button>
           </div>

@@ -30,7 +30,7 @@ export function RoleSwitcher() {
     fetch("/api/auth/me")
       .then((r) => r.json())
       .then((data) => {
-        if (data.configured && data.authenticated) setHideForAuth(true);
+        if (data.configured) setHideForAuth(true);
       })
       .catch(() => {});
   }, []);

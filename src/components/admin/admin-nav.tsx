@@ -9,6 +9,7 @@ import {
   FolderOpen,
   LayoutDashboard,
   LogOut,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 const LINKS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/organizations", label: "Organizations", icon: Building2 },
+  { href: "/admin/invites", label: "Invite managers", icon: Mail },
   { href: "/admin/database", label: "People & Orgs", icon: Database },
   { href: "/admin/upload", label: "Upload", icon: FileUp },
   { href: "/admin/files", label: "Files", icon: FolderOpen },

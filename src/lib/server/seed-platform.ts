@@ -47,6 +47,7 @@ export function createInitialPlatformData(): PlatformData {
     learningSessions: [],
     tutorMessages: [],
     domainAssignments: [],
+    invites: [],
   };
 }
 
@@ -186,6 +187,7 @@ export function migratePlatformData(data: PlatformData): PlatformData {
     tutorMessages: data.tutorMessages ?? [],
     domainAssignments: data.domainAssignments ?? [],
     lessonRequests: data.lessonRequests ?? [],
+    invites: data.invites ?? [],
   };
 
   migrated = sanitizeReferences(migrated);

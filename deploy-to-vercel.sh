@@ -38,6 +38,13 @@ npx vercel env add ADMIN_PASSWORD preview --token "$TOKEN" --yes --force --value
 if [ -f .env.local ]; then
   SUPABASE_URL=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' .env.local | cut -d= -f2- | tr -d '[:space:]' || true)
   SUPABASE_KEY=$(grep '^NEXT_PUBLIC_SUPABASE_ANON_KEY=' .env.local | cut -d= -f2- | tr -d '[:space:]' || true)
+  SITE_URL=$(grep '^NEXT_PUBLIC_SITE_URL=' .env.local | cut -d= -f2- | tr -d '[:space:]' || true)
+  if [ -n "$SITE_URL" ]; then
+    echo "Setting site URL on Vercel..."
+    npx vercel env add NEXT_PUBLIC_SITE_URL production --token "$TOKEN" --yes --force --value "$SITE_URL" 2>/dev/null || true
+    npx vercel env add NEXT_PUBLIC_SITE_URL preview --token "$TOKEN" --yes --force --value "$SITE_URL" 2>/dev/null || true
+  fi
+
   if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
     echo "Setting Supabase keys on Vercel..."
     npx vercel env add NEXT_PUBLIC_SUPABASE_URL production --token "$TOKEN" --yes --force --value "$SUPABASE_URL" 2>/dev/null || true

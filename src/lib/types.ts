@@ -312,6 +312,26 @@ export interface TeamMemberStatus {
   avgMastery?: number;
 }
 
+export type InviteStatus = "pending" | "accepted" | "expired";
+
+export interface Invite {
+  id: string;
+  token: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  orgId: string;
+  teamId: string;
+  jobTitle?: string;
+  priorityCategories?: string[];
+  invitedByUserId?: string;
+  invitedByAdmin?: boolean;
+  status: InviteStatus;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt?: string;
+}
+
 export interface DomainCoverage {
   domainId: string;
   domainName: string;
@@ -340,4 +360,5 @@ export interface PlatformData {
   learningSessions: LearningSession[];
   tutorMessages: TutorMessage[];
   domainAssignments: DomainAssignment[];
+  invites: Invite[];
 }
