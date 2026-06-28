@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const inviteToken = searchParams.get("invite");
+  const nextPath = searchParams.get("next");
   const authError = searchParams.get("error_description");
 
   if (authError) {
@@ -36,6 +37,10 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (user) {
+    if (nextPath && nextPath.startsWith("/")) {
+      return NextResponse.redirect(`${origin}${nextPath}`);
+    }
+
     if (inviteToken) {
       await acceptInvite(inviteToken, user.id, user.email ?? undefined);
     }

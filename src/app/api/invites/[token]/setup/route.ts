@@ -4,11 +4,7 @@ import {
   validatePassword,
 } from "@/lib/auth/invite-setup";
 import { createClient } from "@/lib/supabase/server";
-import {
-  acceptInvite,
-  findUserByEmail,
-  getInviteByToken,
-} from "@/lib/server/data-store";
+import { acceptInvite, getInviteByToken } from "@/lib/server/data-store";
 
 export async function POST(
   request: Request,
@@ -62,16 +58,8 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Account was created but setup did not finish. Try again or contact support.",
+            "Could not finish account setup. Try again or contact support.",
         },
-        { status: 500 }
-      );
-    }
-
-    const verified = await findUserByEmail(invite.email);
-    if (!verified || verified.id !== platformUser.id) {
-      return NextResponse.json(
-        { error: "Account could not be saved. Please try again." },
         { status: 500 }
       );
     }

@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   "/contact",
   "/auth/callback",
   "/auth/confirm",
+  "/auth/reset-password",
   "/admin/login",
 ];
 
@@ -98,6 +99,7 @@ export const config = {
     "/contact",
     "/invite/:path*",
     "/auth/confirm",
+    "/auth/reset-password",
     "/api/invites/:path*",
     "/api/auth/:path*",
     "/api/manager/:path*",

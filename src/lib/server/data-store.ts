@@ -99,6 +99,16 @@ export async function writePlatform(data: PlatformData): Promise<void> {
   await fs.writeFile(PLATFORM_FILE, JSON.stringify(data, null, 2), "utf-8");
 }
 
+/** Read → mutate → write in one pass (avoids nested writes clobbering each other). */
+export async function mutatePlatform(
+  mutator: (data: PlatformData) => void | Promise<void>
+): Promise<PlatformData> {
+  const data = migratePlatformData(await readPlatform());
+  await mutator(data);
+  await writePlatform(data);
+  return data;
+}
+
 export async function saveUploadFile(
   orgId: string,
   fileId: string,
@@ -907,8 +917,8 @@ export async function acceptInvite(
   authUserId: string,
   authEmail?: string
 ): Promise<User | null> {
-  const data = ensureInvites(await readPlatform());
-  const invite = data.invites.find((i) => i.token === token);
+  const initial = ensureInvites(await readPlatform());
+  const invite = initial.invites.find((i) => i.token === token);
   if (!invite || invite.status !== "pending") return null;
   if (new Date(invite.expiresAt) < new Date()) return null;
   if (
@@ -931,9 +941,16 @@ export async function acceptInvite(
 
   if (!user) return null;
 
-  invite.status = "accepted";
-  invite.acceptedAt = new Date().toISOString();
-  await writePlatform(data);
+  // Re-read after provisionAuthUser — its writes must not be overwritten by stale data.
+  await mutatePlatform((data) => {
+    ensureInvites(data);
+    const record = data.invites.find((i) => i.token === token);
+    if (record && record.status === "pending") {
+      record.status = "accepted";
+      record.acceptedAt = new Date().toISOString();
+    }
+  });
+
   return user;
 }
 
