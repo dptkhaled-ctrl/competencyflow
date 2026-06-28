@@ -1,0 +1,41 @@
+COMPETENCYFLOW — DEPLOY IN 2 STEPS
+==================================
+
+STEP 1 — PUT CODE ON GITHUB (you do this once)
+-----------------------------------------------
+1. In this folder, create a new file named exactly:  .github-token
+2. Open it and paste your GitHub token (the whole thing, nothing else)
+3. Save the file
+4. Open Terminal, paste this one line, press Enter:
+
+   cd /Users/mk/CompetencyFlow-Workspace/app && bash push-to-github.sh
+
+   (Or tell the AI assistant "done" and it will run it for you.)
+
+
+STEP 2 — DEPLOY ON VERCEL (5 clicks in the browser)
+----------------------------------------------------
+1. Go to https://vercel.com and sign up / log in with GitHub
+2. Click "Add New..." → "Project"
+3. Find "competencyflow" in the list → click Import
+4. On the settings screen, add these Environment Variables:
+
+   Name:  ADMIN_PASSWORD
+   Value: (pick any password you want for admin access)
+
+   Name:  OPENAI_API_KEY   (optional — only if you want AI features)
+   Value: (your OpenAI key, starts with sk-)
+
+5. Click Deploy
+
+Wait ~2 minutes. Vercel gives you a live URL like:
+   https://competencyflow-xxxxx.vercel.app
+
+That's it. You're live.
+
+
+NOTES
+-----
+- Your .github-token file is private (never uploaded to GitHub)
+- Delete .github-token after Step 1 if you want
+- To update the site later: push new code to GitHub → Vercel auto-redeploys
