@@ -101,10 +101,10 @@ export default function AdminInvitesPage() {
       setMessage(
         data.message ??
           (data.emailSent
-            ? `Invitation email sent to ${form.email}.`
-            : "Invite created — send the link below to the manager.")
+            ? `Invitation email sent to ${form.email}. Check spam if it doesn't arrive.`
+            : "Invite created — copy the link below and send it to the manager.")
       );
-      if (!data.emailSent && (data.magicLink || data.inviteLink)) {
+      if (data.magicLink || data.inviteLink) {
         setManualLink(data.magicLink ?? data.inviteLink);
       }
       setForm((f) => ({ ...f, name: "", email: "" }));
@@ -222,11 +222,27 @@ export default function AdminInvitesPage() {
             </Button>
           </form>
           {message && (
-            <p className="mt-4 rounded-lg bg-emerald-950/50 border border-emerald-800 px-3 py-2 text-sm text-emerald-300">
+            <p
+              className={cn(
+                "mt-4 rounded-lg border px-3 py-2 text-sm",
+                manualLink && !message.includes("Email sent")
+                  ? "border-amber-700 bg-amber-950/40 text-amber-200"
+                  : "border-emerald-800 bg-emerald-950/50 text-emerald-300"
+              )}
+            >
               {message}
             </p>
           )}
-          {manualLink && <CopyInviteLink link={manualLink} />}
+          {manualLink && (
+            <CopyInviteLink
+              link={manualLink}
+              label={
+                message?.includes("Email sent")
+                  ? "Backup invite link (if email doesn't arrive)"
+                  : "Copy this invite link and send it to the manager"
+              }
+            />
+          )}
           {error && (
             <p className="mt-4 rounded-lg bg-red-950/50 border border-red-800 px-3 py-2 text-sm text-red-300">
               {error}

@@ -5,22 +5,46 @@ type SendEmailInput = {
   text?: string;
 };
 
+export type SendEmailResult = {
+  ok: boolean;
+  error?: string;
+  emailId?: string;
+  testingOnly?: boolean;
+  allowedTestEmail?: string;
+};
+
 function emailFromAddress(): string {
-  return (
+  let from =
     process.env.EMAIL_FROM ||
     process.env.RESEND_FROM ||
-    "CompetencyFlow <onboarding@resend.dev>"
-  );
+    "onboarding@resend.dev";
+  from = from.replace(/^["']|["']$/g, "").trim();
+  if (!from.includes("<")) {
+    from = `CompetencyFlow <${from}>`;
+  }
+  return from;
 }
 
 export function isEmailDeliveryConfigured(): boolean {
-  return Boolean(process.env.RESEND_API_KEY);
+  return Boolean(process.env.RESEND_API_KEY?.trim());
+}
+
+function parseResendTestingError(message: string): {
+  testingOnly: boolean;
+  allowedTestEmail?: string;
+} {
+  const lower = message.toLowerCase();
+  if (!lower.includes("only send testing emails")) {
+    return { testingOnly: false };
+  }
+  const match = message.match(/your own email address \(([^)]+)\)/i);
+  return { testingOnly: true, allowedTestEmail: match?.[1] };
 }
 
 export async function sendTransactionalEmail(
   input: SendEmailInput
-): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
+): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY is not configured" };
   }
@@ -33,7 +57,7 @@ export async function sendTransactionalEmail(
     },
     body: JSON.stringify({
       from: emailFromAddress(),
-      to: [input.to],
+      to: [input.to.trim().toLowerCase()],
       subject: input.subject,
       html: input.html,
       text: input.text,
@@ -48,15 +72,29 @@ export async function sendTransactionalEmail(
     } catch {
       // ignore parse errors
     }
-    return { ok: false, error: detail };
+    const hint = parseResendTestingError(detail);
+    return {
+      ok: false,
+      error: detail,
+      testingOnly: hint.testingOnly,
+      allowedTestEmail: hint.allowedTestEmail,
+    };
   }
 
-  return { ok: true };
+  let emailId: string | undefined;
+  try {
+    const body = await res.json();
+    emailId = body?.id;
+  } catch {
+    // response may not be json
+  }
+
+  return { ok: true, emailId };
 }
 
 export function inviteEmailContent(input: {
   name: string;
-  magicLink: string;
+  activationLink: string;
   orgLabel?: string;
 }): { subject: string; html: string; text: string } {
   const subject = "You're invited to CompetencyFlow";
@@ -71,11 +109,11 @@ export function inviteEmailContent(input: {
       ${orgLine}
       <p>Click the button below to activate your account. This link expires in 14 days.</p>
       <p style="margin: 24px 0;">
-        <a href="${input.magicLink}" style="background:#d97706;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;">
+        <a href="${input.activationLink}" style="background:#d97706;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;">
           Accept invitation
         </a>
       </p>
-      <p style="font-size:12px;color:#666;">Or copy this link: ${input.magicLink}</p>
+      <p style="font-size:12px;color:#666;">Or copy this link: ${input.activationLink}</p>
     </div>
   `.trim();
 
@@ -86,7 +124,7 @@ export function inviteEmailContent(input: {
       : "You've been invited to join CompetencyFlow.",
     "",
     "Open this link to activate your account:",
-    input.magicLink,
+    input.activationLink,
   ].join("\n");
 
   return { subject, html, text };
@@ -117,4 +155,11 @@ export function loginEmailContent(input: {
   ].join("\n");
 
   return { subject, html, text };
+}
+
+export function resendTestingMessage(allowedTestEmail?: string): string {
+  if (allowedTestEmail) {
+    return `Resend test mode: auto-email only works to ${allowedTestEmail} until you verify your own domain at resend.com/domains. Copy the invite link below for everyone else.`;
+  }
+  return "Resend test mode: verify your domain at resend.com/domains to email any address. Copy the invite link below for now.";
 }

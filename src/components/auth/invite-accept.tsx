@@ -46,19 +46,26 @@ export function InviteAccept({ token }: { token: string }) {
       .finally(() => setLoading(false));
   }, [token]);
 
-  const resendLink = async () => {
+  const activateNow = async () => {
     setSending(true);
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch(`/api/invites/${token}/send`, {
+      const res = await fetch(`/api/invites/${token}/activate`, {
         method: "POST",
       });
       const data = await parseJsonSafe(res);
-      if (!res.ok) throw new Error(String(data.error ?? "Could not send email"));
-      setMessage("Activation email sent. Open the link on this device to continue.");
+      if (!res.ok) {
+        throw new Error(String(data.error ?? "Could not activate account"));
+      }
+      const redirectUrl = String(data.redirectUrl ?? "");
+      if (!redirectUrl) {
+        throw new Error("No activation link returned");
+      }
+      setMessage("Redirecting you to sign in…");
+      window.location.assign(redirectUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send email");
+      setError(err instanceof Error ? err.message : "Failed to activate");
     } finally {
       setSending(false);
     }
@@ -132,18 +139,18 @@ export function InviteAccept({ token }: { token: string }) {
             </div>
 
             <p className="text-muted-foreground">
-              Click below to receive a secure activation email. The link signs you in
-              automatically — no password to remember.
+              Click below to activate your account. You&apos;ll be signed in automatically —
+              no password to remember.
             </p>
 
-            <Button className="w-full" onClick={() => void resendLink()} disabled={sending}>
+            <Button className="w-full" onClick={() => void activateNow()} disabled={sending}>
               {sending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Sending…
+                  Activating…
                 </>
               ) : (
-                "Send my activation email"
+                "Activate my account"
               )}
             </Button>
 

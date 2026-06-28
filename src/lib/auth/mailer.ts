@@ -61,75 +61,67 @@ async function getLoginMagicLink(email: string): Promise<string | null> {
   return data.properties.action_link;
 }
 
-export async function sendInviteEmail(invite: Invite): Promise<{
+export async function sendInviteEmail(
+  invite: Invite,
+  options?: { orgName?: string }
+): Promise<{
   ok: boolean;
-  method: "resend" | "supabase" | "manual";
+  emailSent: boolean;
+  method: "resend" | "manual";
   error?: string;
-  rateLimited?: boolean;
+  testingOnly?: boolean;
+  allowedTestEmail?: string;
+  activationLink: string;
 }> {
-  if (!isSupabaseConfigured()) {
-    return { ok: false, method: "manual", error: "Supabase not configured" };
-  }
+  const activationLink = getInvitePageUrl(invite.token);
 
-  const magicLink = await getCopyableMagicLink(invite);
-  if (!magicLink) {
+  if (!isSupabaseConfigured()) {
     return {
       ok: false,
+      emailSent: false,
       method: "manual",
-      error: "Could not generate activation link",
+      error: "Supabase not configured",
+      activationLink,
     };
   }
 
-  if (isEmailDeliveryConfigured()) {
-    const content = inviteEmailContent({
-      name: invite.name,
-      magicLink,
-    });
-    const sent = await sendTransactionalEmail({
-      to: invite.email,
-      ...content,
-    });
-    if (sent.ok) {
-      return { ok: true, method: "resend" };
-    }
-    return { ok: false, method: "resend", error: sent.error };
+  if (!isEmailDeliveryConfigured()) {
+    return {
+      ok: false,
+      emailSent: false,
+      method: "manual",
+      error: "RESEND_API_KEY is not configured on the server",
+      activationLink,
+    };
   }
 
-  // Last resort: Supabase built-in email (rate-limited on free tier)
-  if (hasServiceRoleKey()) {
-    const admin = createAdminClient();
-    const redirectTo = inviteRedirectUrl(invite.token);
-    const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-      invite.email,
-      {
-        redirectTo,
-        data: {
-          full_name: invite.name,
-          role: invite.role,
-          org_id: invite.orgId,
-          invite_token: invite.token,
-        },
-      }
-    );
+  const content = inviteEmailContent({
+    name: invite.name,
+    activationLink,
+    orgLabel: options?.orgName,
+  });
+  const sent = await sendTransactionalEmail({
+    to: invite.email,
+    ...content,
+  });
 
-    if (!inviteError) {
-      return { ok: true, method: "supabase" };
-    }
-
-    if (isRateLimitError(inviteError.message)) {
-      return {
-        ok: false,
-        method: "supabase",
-        error: inviteError.message,
-        rateLimited: true,
-      };
-    }
+  if (sent.ok) {
+    return {
+      ok: true,
+      emailSent: true,
+      method: "resend",
+      activationLink,
+    };
   }
 
   return {
     ok: false,
-    method: "manual",
-    error: "Email delivery not configured. Add RESEND_API_KEY for automatic invites.",
+    emailSent: false,
+    method: "resend",
+    error: sent.error,
+    testingOnly: sent.testingOnly,
+    allowedTestEmail: sent.allowedTestEmail,
+    activationLink,
   };
 }
 
@@ -159,10 +151,9 @@ export async function sendLoginMagicLink(email: string): Promise<{
     if (sent.ok) {
       return { ok: true };
     }
-    return { ok: false, error: sent.error };
+    return { ok: false, error: sent.error, magicLink };
   }
 
-  // Fallback: Supabase OTP (rate-limited)
   const { createClient } = await import("@supabase/supabase-js");
   const { getSupabaseAnonKey, getSupabaseUrl } = await import(
     "@/lib/supabase/config"

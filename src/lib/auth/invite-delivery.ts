@@ -1,14 +1,13 @@
 import {
   getInvitePageUrl,
-  getCopyableMagicLink,
   sendInviteEmail,
 } from "@/lib/auth/mailer";
-import { isEmailDeliveryConfigured } from "@/lib/auth/email-sender";
+import { resendTestingMessage } from "@/lib/auth/email-sender";
 import type { Invite } from "@/lib/types";
 
 export type InviteDeliveryResult = {
   ok: boolean;
-  emailSent?: boolean;
+  emailSent: boolean;
   rateLimited?: boolean;
   inviteLink: string;
   magicLink?: string | null;
@@ -17,53 +16,45 @@ export type InviteDeliveryResult = {
   invite: Invite;
 };
 
-export async function deliverInvite(invite: Invite): Promise<InviteDeliveryResult> {
+export async function deliverInvite(
+  invite: Invite,
+  options?: { orgName?: string }
+): Promise<InviteDeliveryResult> {
   const inviteLink = getInvitePageUrl(invite.token);
-  const mail = await sendInviteEmail(invite);
+  const mail = await sendInviteEmail(invite, options);
 
-  if (mail.ok) {
+  if (mail.emailSent) {
     return {
       ok: true,
       emailSent: true,
       inviteLink,
-      message: `Activation email sent to ${invite.email}.`,
+      magicLink: inviteLink,
+      message: `Email sent to ${invite.email}. They should click the link and press "Activate my account". Check spam if it doesn't arrive within a minute.`,
       invite,
     };
   }
 
-  const magicLink = await getCopyableMagicLink(invite);
-  const manualLink = magicLink ?? inviteLink;
-
-  if (mail.rateLimited || !isEmailDeliveryConfigured()) {
-    return {
-      ok: true,
-      emailSent: false,
-      rateLimited: mail.rateLimited,
-      inviteLink,
-      magicLink: manualLink,
-      message: isEmailDeliveryConfigured()
-        ? "Supabase email limit reached. Copy the link below and send it manually."
-        : "Invite created. Copy the activation link below and send it to them (email auto-send needs RESEND_API_KEY in Vercel).",
-      invite,
-    };
-  }
-
-  if (magicLink) {
+  if (mail.testingOnly) {
     return {
       ok: true,
       emailSent: false,
       inviteLink,
-      magicLink,
-      message:
-        "Automatic email could not be sent. Copy the activation link below and send it manually.",
+      magicLink: inviteLink,
+      message: resendTestingMessage(mail.allowedTestEmail),
+      error: mail.error,
       invite,
     };
   }
 
   return {
-    ok: false,
-    error: mail.error ?? "Failed to send invite email",
+    ok: true,
+    emailSent: false,
     inviteLink,
+    magicLink: inviteLink,
+    message: mail.error
+      ? `Invite saved. Email could not be sent (${mail.error}). Copy the link below and send it to ${invite.email} — they can activate in one click.`
+      : `Invite saved. Copy the link below and send it to ${invite.email}.`,
+    error: mail.error,
     invite,
   };
 }

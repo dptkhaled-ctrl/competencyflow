@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { deliverInvite } from "@/lib/auth/invite-delivery";
-import { createInvite, listInvitesForOrg } from "@/lib/server/data-store";
+import { createInvite, listInvitesForOrg, readPlatform } from "@/lib/server/data-store";
 import { getInvitePageUrl } from "@/lib/auth/mailer";
 
 export async function GET(request: Request) {
@@ -48,7 +48,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not create invite" }, { status: 400 });
   }
 
-  const result = await deliverInvite(invite);
+  const platform = await readPlatform();
+  const orgName = platform.organizations.find((o) => o.id === orgId)?.name;
+  const result = await deliverInvite(invite, { orgName });
 
   if (!result.ok) {
     return NextResponse.json(

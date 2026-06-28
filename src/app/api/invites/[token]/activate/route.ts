@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deliverInvite } from "@/lib/auth/invite-delivery";
+import { getCopyableMagicLink } from "@/lib/auth/mailer";
 import { getInviteByToken } from "@/lib/server/data-store";
 
 export async function POST(
@@ -13,19 +13,13 @@ export async function POST(
     return NextResponse.json({ error: "Invite not found or expired" }, { status: 404 });
   }
 
-  const result = await deliverInvite(invite, { orgName: invite.orgName });
-
-  if (!result.ok) {
+  const redirectUrl = await getCopyableMagicLink(invite);
+  if (!redirectUrl) {
     return NextResponse.json(
-      { error: result.error ?? "Could not send activation email" },
+      { error: "Could not create activation link. Try again or contact your administrator." },
       { status: 502 }
     );
   }
 
-  return NextResponse.json({
-    ok: true,
-    emailSent: result.emailSent,
-    message: result.message,
-    inviteLink: result.inviteLink,
-  });
+  return NextResponse.json({ ok: true, redirectUrl });
 }
