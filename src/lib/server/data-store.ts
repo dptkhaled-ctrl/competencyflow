@@ -810,6 +810,19 @@ function ensureInvites(data: PlatformData): PlatformData {
   return data;
 }
 
+function enrichInvite(
+  data: PlatformData,
+  invite: Invite
+): Invite & { orgName?: string; teamName?: string } {
+  const org = data.organizations.find((o) => o.id === invite.orgId);
+  const team = data.teams.find((t) => t.id === invite.teamId);
+  return {
+    ...invite,
+    orgName: org?.name,
+    teamName: team?.name,
+  };
+}
+
 export async function getInviteByToken(
   token: string
 ): Promise<(Invite & { orgName?: string; teamName?: string }) | null> {
@@ -818,14 +831,24 @@ export async function getInviteByToken(
   if (!invite) return null;
   if (invite.status !== "pending") return null;
   if (new Date(invite.expiresAt) < new Date()) return null;
+  return enrichInvite(data, invite);
+}
 
-  const org = data.organizations.find((o) => o.id === invite.orgId);
-  const team = data.teams.find((t) => t.id === invite.teamId);
-  return {
-    ...invite,
-    orgName: org?.name,
-    teamName: team?.name,
-  };
+export async function getInviteByTokenForPage(
+  token: string
+): Promise<
+  (Invite & { orgName?: string; teamName?: string; alreadyAccepted?: boolean }) | null
+> {
+  const data = ensureInvites(await readPlatform());
+  const invite = data.invites.find((i) => i.token === token);
+  if (!invite) return null;
+  if (new Date(invite.expiresAt) < new Date()) return null;
+  const enriched = enrichInvite(data, invite);
+  if (invite.status === "accepted") {
+    return { ...enriched, alreadyAccepted: true };
+  }
+  if (invite.status !== "pending") return null;
+  return enriched;
 }
 
 export async function createInvite(input: {

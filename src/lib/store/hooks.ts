@@ -26,10 +26,23 @@ export function useCurrentOrg(): Organization | undefined {
 export function useCurrentUser(): User {
   const currentUserId = useAppStore((s) => s.currentUserId);
   const users = useAppStore((s) => s.users);
-  return useMemo(
-    () => users.find((u) => u.id === currentUserId) ?? users[0],
-    [currentUserId, users]
-  );
+  return useMemo(() => {
+    if (currentUserId) {
+      const match = users.find((u) => u.id === currentUserId);
+      if (match) return match;
+    }
+    return (
+      users[0] ?? {
+        id: "",
+        orgId: "",
+        teamId: "",
+        name: "",
+        email: "",
+        role: "staff" as const,
+        avatarInitials: "?",
+      }
+    );
+  }, [currentUserId, users]);
 }
 
 export function useUserLessons(): Lesson[] {

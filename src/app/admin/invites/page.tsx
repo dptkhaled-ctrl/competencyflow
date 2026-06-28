@@ -104,9 +104,7 @@ export default function AdminInvitesPage() {
             ? `Invitation email sent to ${form.email}. Check spam if it doesn't arrive.`
             : "Invite created — copy the link below and send it to the manager.")
       );
-      if (data.magicLink || data.inviteLink) {
-        setManualLink(data.magicLink ?? data.inviteLink);
-      }
+      setManualLink(data.magicLink ?? data.inviteLink ?? null);
       setForm((f) => ({ ...f, name: "", email: "" }));
       if (form.orgId) await loadInvites(form.orgId);
     } catch (err) {

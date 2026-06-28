@@ -4,7 +4,11 @@ import {
   validatePassword,
 } from "@/lib/auth/invite-setup";
 import { createClient } from "@/lib/supabase/server";
-import { acceptInvite, getInviteByToken } from "@/lib/server/data-store";
+import {
+  acceptInvite,
+  findUserByEmail,
+  getInviteByToken,
+} from "@/lib/server/data-store";
 
 export async function POST(
   request: Request,
@@ -16,7 +20,10 @@ export async function POST(
 
     if (!invite) {
       return NextResponse.json(
-        { error: "Invite not found or expired. Ask for a new invite." },
+        {
+          error:
+            "This invite was already used or has expired. Sign in with your password, or ask for a new invite.",
+        },
         { status: 404 }
       );
     }
@@ -61,6 +68,14 @@ export async function POST(
       );
     }
 
+    const verified = await findUserByEmail(invite.email);
+    if (!verified || verified.id !== platformUser.id) {
+      return NextResponse.json(
+        { error: "Account could not be saved. Please try again." },
+        { status: 500 }
+      );
+    }
+
     const supabase = await createClient();
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: invite.email,
@@ -70,8 +85,7 @@ export async function POST(
     if (signInError) {
       return NextResponse.json(
         {
-          error:
-            "Account created. Go to Sign in and use your new password.",
+          error: "Account created. Sign in with your new email and password.",
           redirectTo: "/login",
         },
         { status: 502 }
@@ -84,6 +98,8 @@ export async function POST(
     return NextResponse.json({
       ok: true,
       redirectTo,
+      userId: platformUser.id,
+      role: platformUser.role,
       message: "Welcome! Your account is ready.",
     });
   } catch (err) {

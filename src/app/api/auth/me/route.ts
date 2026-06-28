@@ -43,6 +43,7 @@ export async function GET() {
       phone: platformUser.phone,
       role: platformUser.role,
       orgId: platformUser.orgId,
+      teamId: platformUser.teamId,
     },
     authUser: {
       id: authUser.id,

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/lib/store/app-store";
 
 async function parseJsonSafe(res: Response) {
   const text = await res.text();
@@ -50,6 +51,10 @@ export function LoginForm() {
       }
 
       const redirectTo = String(data.redirectTo ?? "/");
+      if (data.userId) {
+        await useAppStore.getState().hydrateFromServer();
+        useAppStore.getState().setCurrentUser(String(data.userId));
+      }
       window.location.assign(redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

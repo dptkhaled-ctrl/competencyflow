@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/lib/store/app-store";
 
 type InviteInfo = {
   email: string;
@@ -16,6 +17,7 @@ type InviteInfo = {
   role: "staff" | "manager";
   orgName?: string;
   teamName?: string;
+  alreadyAccepted?: boolean;
 };
 
 async function parseJsonSafe(res: Response) {
@@ -74,6 +76,10 @@ export function InviteAccept({ token }: { token: string }) {
       }
 
       const redirectTo = String(data.redirectTo ?? "/");
+      if (data.userId) {
+        await useAppStore.getState().hydrateFromServer();
+        useAppStore.getState().setCurrentUser(String(data.userId));
+      }
       window.location.assign(redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to set up account");
@@ -108,6 +114,27 @@ export function InviteAccept({ token }: { token: string }) {
   }
 
   const roleLabel = invite.role === "manager" ? "Manager" : "Staff member";
+
+  if (invite.alreadyAccepted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle>Account already set up</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              <strong>{invite.email}</strong> already completed setup. Sign in with
+              your password to continue.
+            </p>
+            <Link href="/login" className={buttonVariants({ className: "w-full" })}>
+              Go to sign in
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-slate-100 px-4 py-12">

@@ -158,7 +158,7 @@ function updateStreak(streaks: Streak[], userId: string): Streak[] {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      currentUserId: "user-snf-1",
+      currentUserId: "",
       organizations: seedOrganizations,
       teams: seedTeams,
       users: seedUsers,
@@ -198,18 +198,7 @@ export const useAppStore = create<AppState>()(
       hydrated: false,
 
       setCurrentUser: (userId) => {
-        const currentUsers = get().users || [];
-        if (currentUsers.length === 0) {
-          set({ currentUserId: userId });
-          return;
-        }
-        if (currentUsers.some((u) => u.id === userId)) {
-          set({ currentUserId: userId });
-          return;
-        }
-        const fallback =
-          currentUsers.find((u) => u.role === "staff") ?? currentUsers[0];
-        set({ currentUserId: fallback.id });
+        set({ currentUserId: userId });
       },
 
       hydrateFromServer: async () => {
@@ -580,7 +569,6 @@ export const useAppStore = create<AppState>()(
     {
       name: "competencyflow-v05",
       partialize: (state) => ({
-        currentUserId: state.currentUserId,
         progress: state.progress,
         streaks: state.streaks,
         userXp: state.userXp,
