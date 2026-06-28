@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Building2, GraduationCap, Loader2, Mail, Shield } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,11 +27,18 @@ async function parseJsonSafe(res: Response) {
 }
 
 export function InviteAccept({ token }: { token: string }) {
+  const searchParams = useSearchParams();
   const [invite, setInvite] = useState<InviteInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const urlError = searchParams.get("error");
+    if (urlError) setError(urlError);
+  }, [searchParams]);
 
   useEffect(() => {
     fetch(`/api/invites/${token}`)
@@ -62,11 +70,11 @@ export function InviteAccept({ token }: { token: string }) {
       if (!redirectUrl) {
         throw new Error("No activation link returned");
       }
-      setMessage("Redirecting you to sign in…");
-      window.location.assign(redirectUrl);
+      setFallbackUrl(redirectUrl);
+      setMessage("Signing you in…");
+      window.location.replace(redirectUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to activate");
-    } finally {
       setSending(false);
     }
   };
@@ -155,7 +163,16 @@ export function InviteAccept({ token }: { token: string }) {
             </Button>
 
             {message && (
-              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800">{message}</p>
+              <div className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800 space-y-2">
+                <p>{message}</p>
+                {fallbackUrl && (
+                  <p>
+                    <a href={fallbackUrl} className="underline font-medium">
+                      Click here if nothing happens
+                    </a>
+                  </p>
+                )}
+              </div>
             )}
             {error && (
               <p className="rounded-lg bg-red-50 px-3 py-2 text-red-800">{error}</p>

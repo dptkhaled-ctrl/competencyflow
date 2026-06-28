@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCopyableMagicLink } from "@/lib/auth/mailer";
+import { getInviteActivationConfirmUrl } from "@/lib/auth/mailer";
 import { getInviteByToken } from "@/lib/server/data-store";
 
 export async function POST(
@@ -13,7 +13,7 @@ export async function POST(
     return NextResponse.json({ error: "Invite not found or expired" }, { status: 404 });
   }
 
-  const redirectUrl = await getCopyableMagicLink(invite);
+  const redirectUrl = await getInviteActivationConfirmUrl(invite);
   if (!redirectUrl) {
     return NextResponse.json(
       { error: "Could not create activation link. Try again or contact your administrator." },

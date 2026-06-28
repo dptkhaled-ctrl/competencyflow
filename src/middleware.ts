@@ -5,7 +5,14 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 const ADMIN_COOKIE = "cf_admin_session";
 
-const PUBLIC_PATHS = ["/", "/login", "/contact", "/auth/callback", "/admin/login"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/contact",
+  "/auth/callback",
+  "/auth/confirm",
+  "/admin/login",
+];
 
 function isPublicPath(pathname: string) {
   if (PUBLIC_PATHS.includes(pathname)) return true;
@@ -90,6 +97,7 @@ export const config = {
     "/login",
     "/contact",
     "/invite/:path*",
+    "/auth/confirm",
     "/api/invites/:path*",
     "/api/auth/:path*",
     "/api/manager/:path*",

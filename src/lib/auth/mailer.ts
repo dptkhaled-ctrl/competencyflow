@@ -26,7 +26,7 @@ function isRateLimitError(message: string) {
   return message.toLowerCase().includes("rate limit");
 }
 
-export async function getCopyableMagicLink(
+export async function getInviteActivationConfirmUrl(
   invite: Invite
 ): Promise<string | null> {
   if (!hasServiceRoleKey()) return null;
@@ -40,12 +40,27 @@ export async function getCopyableMagicLink(
       email: invite.email,
       options: { redirectTo },
     });
-    if (!error && data?.properties?.action_link) {
-      return data.properties.action_link;
+    const hashed = data?.properties?.hashed_token;
+    if (!error && hashed) {
+      const url = new URL(`${siteUrl()}/auth/confirm`);
+      url.searchParams.set("token_hash", hashed);
+      url.searchParams.set(
+        "type",
+        data.properties.verification_type || type
+      );
+      url.searchParams.set("invite", invite.token);
+      return url.toString();
     }
   }
 
   return null;
+}
+
+/** @deprecated Prefer getInviteActivationConfirmUrl — stays on your domain. */
+export async function getCopyableMagicLink(
+  invite: Invite
+): Promise<string | null> {
+  return getInviteActivationConfirmUrl(invite);
 }
 
 async function getLoginMagicLink(email: string): Promise<string | null> {
