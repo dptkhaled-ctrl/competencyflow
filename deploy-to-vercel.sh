@@ -36,6 +36,16 @@ npx vercel env add ADMIN_PASSWORD production --token "$TOKEN" --yes --force --va
 npx vercel env add ADMIN_PASSWORD preview --token "$TOKEN" --yes --force --value "$ADMIN_PW" 2>/dev/null || true
 
 if [ -f .env.local ]; then
+  SUPABASE_URL=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' .env.local | cut -d= -f2- | tr -d '[:space:]' || true)
+  SUPABASE_KEY=$(grep '^NEXT_PUBLIC_SUPABASE_ANON_KEY=' .env.local | cut -d= -f2- | tr -d '[:space:]' || true)
+  if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
+    echo "Setting Supabase keys on Vercel..."
+    npx vercel env add NEXT_PUBLIC_SUPABASE_URL production --token "$TOKEN" --yes --force --value "$SUPABASE_URL" 2>/dev/null || true
+    npx vercel env add NEXT_PUBLIC_SUPABASE_URL preview --token "$TOKEN" --yes --force --value "$SUPABASE_URL" 2>/dev/null || true
+    npx vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production --token "$TOKEN" --yes --force --value "$SUPABASE_KEY" 2>/dev/null || true
+    npx vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY preview --token "$TOKEN" --yes --force --value "$SUPABASE_KEY" 2>/dev/null || true
+  fi
+
   OPENAI_KEY=$(grep '^OPENAI_API_KEY=' .env.local | cut -d= -f2- | tr -d '[:space:]' || true)
   if [ -n "$OPENAI_KEY" ] && [ "$OPENAI_KEY" != "sk-proj-your-openai-key-here" ]; then
     echo "Setting OpenAI key on Vercel..."
