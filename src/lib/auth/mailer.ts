@@ -17,13 +17,44 @@ export function inviteRedirectUrl(token: string) {
   return `${siteUrl()}/auth/callback?invite=${encodeURIComponent(token)}`;
 }
 
+export function getInvitePageUrl(token: string) {
+  return `${siteUrl()}/invite/${token}`;
+}
+
+function isRateLimitError(message: string) {
+  return message.toLowerCase().includes("rate limit");
+}
+
+export async function getCopyableMagicLink(
+  invite: Invite
+): Promise<string | null> {
+  if (!hasServiceRoleKey()) return null;
+
+  const admin = createAdminClient();
+  const redirectTo = inviteRedirectUrl(invite.token);
+
+  for (const type of ["invite", "magiclink"] as const) {
+    const { data, error } = await admin.auth.admin.generateLink({
+      type,
+      email: invite.email,
+      options: { redirectTo },
+    });
+    if (!error && data?.properties?.action_link) {
+      return data.properties.action_link;
+    }
+  }
+
+  return null;
+}
+
 export async function sendInviteEmail(invite: Invite): Promise<{
   ok: boolean;
-  method: "invite" | "magiclink" | "otp";
+  method: "invite" | "otp" | "manual";
   error?: string;
+  rateLimited?: boolean;
 }> {
   if (!isSupabaseConfigured()) {
-    return { ok: false, method: "otp", error: "Supabase not configured" };
+    return { ok: false, method: "manual", error: "Supabase not configured" };
   }
 
   const redirectTo = inviteRedirectUrl(invite.token);
@@ -46,6 +77,15 @@ export async function sendInviteEmail(invite: Invite): Promise<{
     if (!inviteError) {
       return { ok: true, method: "invite" };
     }
+
+    if (isRateLimitError(inviteError.message)) {
+      return {
+        ok: false,
+        method: "invite",
+        error: inviteError.message,
+        rateLimited: true,
+      };
+    }
   }
 
   const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey());
@@ -64,7 +104,12 @@ export async function sendInviteEmail(invite: Invite): Promise<{
   });
 
   if (otpError) {
-    return { ok: false, method: "otp", error: otpError.message };
+    return {
+      ok: false,
+      method: "otp",
+      error: otpError.message,
+      rateLimited: isRateLimitError(otpError.message),
+    };
   }
 
   return { ok: true, method: "otp" };
@@ -83,7 +128,6 @@ export async function sendLoginMagicLink(email: string): Promise<{
 
   const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey());
 
-  // Existing Supabase auth user
   let { error } = await supabase.auth.signInWithOtp({
     email: normalized,
     options: {
@@ -92,7 +136,6 @@ export async function sendLoginMagicLink(email: string): Promise<{
     },
   });
 
-  // Platform user not yet in Supabase auth — send magic link to create + link on callback
   if (
     error &&
     (error.code === "otp_disabled" ||
@@ -106,11 +149,10 @@ export async function sendLoginMagicLink(email: string): Promise<{
   }
 
   if (error) {
-    const msg = error.message.toLowerCase();
-    if (msg.includes("rate limit")) {
+    if (isRateLimitError(error.message)) {
       return {
         ok: false,
-        error: "Too many emails sent. Wait a few minutes and try again.",
+        error: "Too many emails sent. Wait 10–15 minutes and try again.",
       };
     }
     return { ok: false, error: error.message };

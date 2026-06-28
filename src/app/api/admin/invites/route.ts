@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { sendInviteEmail } from "@/lib/auth/mailer";
+import { deliverInvite } from "@/lib/auth/invite-delivery";
 import { createInvite, listInvitesForOrg } from "@/lib/server/data-store";
+import { getInvitePageUrl } from "@/lib/auth/mailer";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -10,7 +11,11 @@ export async function GET(request: Request) {
   }
 
   const invites = await listInvitesForOrg(orgId, "manager");
-  return NextResponse.json({ invites });
+  const withLinks = invites.map((inv) => ({
+    ...inv,
+    inviteLink: getInvitePageUrl(inv.token),
+  }));
+  return NextResponse.json({ invites: withLinks });
 }
 
 export async function POST(request: Request) {
@@ -43,13 +48,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not create invite" }, { status: 400 });
   }
 
-  const mail = await sendInviteEmail(invite);
-  if (!mail.ok) {
+  const result = await deliverInvite(invite);
+
+  if (!result.ok) {
     return NextResponse.json(
-      { error: mail.error ?? "Failed to send email", invite },
+      {
+        error: result.error,
+        invite: result.invite,
+        inviteLink: result.inviteLink,
+      },
       { status: 502 }
     );
   }
 
-  return NextResponse.json({ ok: true, invite, emailSent: true });
+  return NextResponse.json(result);
 }

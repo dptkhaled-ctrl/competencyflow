@@ -16,12 +16,16 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { CopyInviteLink } from "@/components/auth/copy-invite-link";
 import type { Invite, Organization, Team } from "@/lib/types";
+
+type InviteRow = Invite & { inviteLink?: string };
 
 export default function AdminInvitesPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [invites, setInvites] = useState<Invite[]>([]);
+  const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [manualLink, setManualLink] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -80,6 +84,7 @@ export default function AdminInvitesPage() {
     setSending(true);
     setError(null);
     setMessage(null);
+    setManualLink(null);
     try {
       const res = await fetch("/api/admin/invites", {
         method: "POST",
@@ -88,11 +93,20 @@ export default function AdminInvitesPage() {
       });
       const text = await res.text();
       const data = text ? JSON.parse(text) : {};
-      if (!res.ok) throw new Error(data.error ?? "Failed to send invite");
+      if (!res.ok) {
+        if (data.inviteLink) setManualLink(data.magicLink ?? data.inviteLink);
+        throw new Error(data.error ?? "Failed to send invite");
+      }
 
       setMessage(
-        `Invitation email sent to ${form.email}. They'll receive a secure link to activate their manager account.`
+        data.message ??
+          (data.emailSent
+            ? `Invitation email sent to ${form.email}.`
+            : "Invite created — send the link below to the manager.")
       );
+      if (!data.emailSent && (data.magicLink || data.inviteLink)) {
+        setManualLink(data.magicLink ?? data.inviteLink);
+      }
       setForm((f) => ({ ...f, name: "", email: "" }));
       if (form.orgId) await loadInvites(form.orgId);
     } catch (err) {
@@ -212,6 +226,7 @@ export default function AdminInvitesPage() {
               {message}
             </p>
           )}
+          {manualLink && <CopyInviteLink link={manualLink} />}
           {error && (
             <p className="mt-4 rounded-lg bg-red-950/50 border border-red-800 px-3 py-2 text-sm text-red-300">
               {error}
@@ -233,15 +248,20 @@ export default function AdminInvitesPage() {
             invites.map((inv) => (
               <div
                 key={inv.id}
-                className="flex items-center justify-between rounded-lg border border-slate-700 p-3 text-sm"
+                className="rounded-lg border border-slate-700 p-3 text-sm space-y-2"
               >
-                <div>
-                  <p className="font-medium">{inv.name}</p>
-                  <p className="text-muted-foreground">{inv.email}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{inv.name}</p>
+                    <p className="text-muted-foreground">{inv.email}</p>
+                  </div>
+                  <Badge variant={inv.status === "accepted" ? "default" : "secondary"}>
+                    {inv.status}
+                  </Badge>
                 </div>
-                <Badge variant={inv.status === "accepted" ? "default" : "secondary"}>
-                  {inv.status}
-                </Badge>
+                {inv.status === "pending" && inv.inviteLink && (
+                  <CopyInviteLink link={inv.inviteLink} label="Share this invite link" />
+                )}
               </div>
             ))
           )}

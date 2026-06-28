@@ -263,6 +263,7 @@ export default function ManagerTeamPage() {
                 const valid = bulkRows.filter(r => r.name.trim() && r.email.trim() && r.jobTitle);
                 if (valid.length === 0) return alert("Add at least one complete row (name, email, title).");
                 let sent = 0;
+                const manualLinks: string[] = [];
                 const errors: string[] = [];
                 for (const row of valid) {
                   try {
@@ -277,17 +278,33 @@ export default function ManagerTeamPage() {
                     });
                     const text = await res.text();
                     const data = text ? JSON.parse(text) : {};
-                    if (res.ok) sent += 1;
-                    else errors.push(`${row.email}: ${data.error ?? "failed"}`);
+                    if (res.ok) {
+                      sent += 1;
+                      if (!data.emailSent && (data.magicLink || data.inviteLink)) {
+                        manualLinks.push(
+                          `${row.email}: ${data.magicLink ?? data.inviteLink}`
+                        );
+                      }
+                    } else {
+                      const link = data.magicLink ?? data.inviteLink;
+                      if (link) manualLinks.push(`${row.email}: ${link}`);
+                      errors.push(`${row.email}: ${data.error ?? "failed"}`);
+                    }
                   } catch {
                     errors.push(`${row.email}: network error`);
                   }
                 }
-                const msg =
+                let msg =
                   sent > 0
-                    ? `Sent ${sent} invite email${sent > 1 ? "s" : ""}. Staff will appear after they activate their account.`
+                    ? manualLinks.length > 0
+                      ? `Created ${sent} invite(s). Email limit reached — copy the links below and send them yourself.`
+                      : `Sent ${sent} invite email${sent > 1 ? "s" : ""}. Staff will appear after they activate their account.`
                     : "Could not send invites.";
-                alert(errors.length ? `${msg}\n\n${errors.join("\n")}` : msg);
+                if (manualLinks.length) {
+                  msg += `\n\nCopy and send these links manually:\n${manualLinks.join("\n")}`;
+                }
+                if (errors.length) msg += `\n\n${errors.join("\n")}`;
+                alert(msg);
                 setBulkRows([{name:'', email:'', jobTitle:''}]);
                 setShowBulkDialog(false);
               }}
