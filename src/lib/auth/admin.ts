@@ -4,7 +4,11 @@ export const ADMIN_COOKIE = "cf_admin_session";
 const SESSION_VALUE = "authenticated";
 
 export function getAdminPassword(): string {
-  return process.env.ADMIN_PASSWORD ?? "CompetencyFlow2026!";
+  const password = process.env.ADMIN_PASSWORD?.trim();
+  if (!password) {
+    throw new Error("ADMIN_PASSWORD is not set");
+  }
+  return password;
 }
 
 export function verifyAdminPassword(password: string): boolean {

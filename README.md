@@ -89,7 +89,7 @@ git push -u origin main
 1. Go to [vercel.com](https://vercel.com) → New Project → Import Git Repository (select your repo).
 2. Vercel auto-detects Next.js.
 3. **Important Environment Variables** (in Vercel dashboard → Settings → Environment Variables):
-   - `ADMIN_PASSWORD` = (e.g. CompetencyFlow2026!)
+   - `ADMIN_PASSWORD` = (choose a strong password — set in Vercel only, never in git)
    - `OPENAI_API_KEY` = sk-... (required for AI lesson generation and some chat features)
    - `OPENAI_MODEL` = gpt-4o-mini (optional)
 

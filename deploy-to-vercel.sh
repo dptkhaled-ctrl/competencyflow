@@ -21,8 +21,17 @@ fi
 
 if [ -f .vercel-admin-password ]; then
   ADMIN_PW=$(tr -d '[:space:]' < .vercel-admin-password)
-else
-  ADMIN_PW="CompetencyFlow2026!"
+elif [ -f .env.local ]; then
+  ADMIN_PW=$(grep '^ADMIN_PASSWORD=' .env.local | cut -d= -f2- | tr -d '[:space:]' || true)
+fi
+
+if [ -z "$ADMIN_PW" ]; then
+  echo ""
+  echo "  Missing admin password."
+  echo "  Set ADMIN_PASSWORD in .env.local, or create .vercel-admin-password"
+  echo "  (both files are gitignored — never commit them)."
+  echo ""
+  exit 1
 fi
 
 export VERCEL_TOKEN="$TOKEN"
@@ -75,5 +84,5 @@ echo ""
 echo "Done! Your site is live at:"
 echo "  $URL"
 echo ""
-echo "Admin password: $ADMIN_PW"
-echo "(Change it anytime by editing .vercel-admin-password and re-running this script)"
+echo "Admin password synced from your local gitignored file."
+echo "(Change ADMIN_PASSWORD in .env.local, then re-run this script)"

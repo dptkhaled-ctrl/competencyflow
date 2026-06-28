@@ -1,0 +1,73 @@
+KEEPING YOUR KEYS SAFE
+======================
+
+Short answer: Yes, you can keep using Grok Build to upgrade the app WITHOUT
+pasting keys into chat. Keys should live only on your computer and in Vercel/
+Supabase dashboards — never in GitHub or chat messages.
+
+
+WHAT IS SAFE TODAY
+------------------
+These files are gitignored (not on GitHub):
+  .env.local              — Supabase, OpenAI, admin password
+  .vercel-token           — Vercel deploy token
+  .github-token           — GitHub push token
+  .vercel-admin-password  — optional admin password file
+
+Deploy scripts read .env.local FROM YOUR MACHINE only. You never need to
+paste keys into an AI chat for deploys to work.
+
+
+WHAT WAS RISKY
+--------------
+1. Pasting keys into chat — chat history can be stored; treat those keys as
+   exposed and rotate them (see below). Do rotation in each service's website,
+   not in chat.
+
+2. ADMIN-LOGIN.txt had a real password in GitHub — that has been removed.
+   Change your admin password (see "Rotate" below).
+
+
+HOW TO ROTATE KEYS (NO AI CHAT NEEDED)
+--------------------------------------
+Do each step in the service's website. Update .env.local on your Mac only.
+Then run: bash deploy-to-vercel.sh
+
+  Supabase anon + service role:
+    supabase.com → Project → Settings → API → Regenerate keys
+    Paste new values into .env.local, redeploy.
+
+  OpenAI:
+    platform.openai.com → API keys → Create new key, revoke old one
+    Paste into .env.local, redeploy.
+
+  Vercel token:
+    vercel.com → Account → Tokens → Create new, delete old
+    Paste into .vercel-token (local file only).
+
+  GitHub token:
+    github.com → Settings → Developer settings → Personal access tokens
+    Regenerate, paste into .github-token (local file only).
+
+  Admin password:
+    Change ADMIN_PASSWORD in .env.local, run deploy-to-vercel.sh
+
+
+WORKING WITH GROK BUILD GOING FORWARD
+-------------------------------------
+  DO:
+    - Say what you want built ("add Stripe", "fix invite email")
+    - Let the agent edit code and run deploy scripts on your machine
+    - Keep secrets in .env.local and Vercel env vars
+
+  DON'T:
+    - Paste API keys, tokens, or passwords into chat
+    - Commit .env.local or token files to GitHub
+    - Put real passwords in README or ADMIN-LOGIN.txt
+
+
+IF YOU ALREADY PASTED KEYS IN CHAT
+----------------------------------
+Assume they may be compromised. Rotate all of them using the steps above.
+You do NOT need to tell the AI the new values — only update .env.local and
+Vercel yourself.

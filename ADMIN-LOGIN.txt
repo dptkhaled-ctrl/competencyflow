@@ -5,6 +5,9 @@ Admin login page:
   https://competencyflow.vercel.app/admin/login
 
 Password:
-  CompetencyFlow2026!
+  (Set in .env.local as ADMIN_PASSWORD — never commit or share this file.)
 
-(Stored in .env.local as ADMIN_PASSWORD)
+To change it:
+  1. Edit ADMIN_PASSWORD in .env.local on your computer
+  2. Run: bash deploy-to-vercel.sh
+     (reads .env.local locally; nothing is pasted into chat)

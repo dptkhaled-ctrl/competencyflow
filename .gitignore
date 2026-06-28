@@ -38,6 +38,7 @@ yarn-error.log*
 .github-token
 .vercel-token
 .vercel-admin-password
+ADMIN-LOGIN.local.txt
 
 # vercel
 .vercel
