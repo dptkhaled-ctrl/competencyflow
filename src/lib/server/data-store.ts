@@ -694,6 +694,102 @@ export async function deleteOrganization(id: string): Promise<{ ok: boolean; err
   return { ok: true };
 }
 
+const DEFAULT_SIGNUP_ORG_ID = "org-snf-demo";
+const DEFAULT_SIGNUP_TEAM_ID = "team-snf-main";
+
+export async function findUserByAuthUserId(
+  authUserId: string
+): Promise<User | null> {
+  const data = await readPlatform();
+  return data.users.find((u) => u.authUserId === authUserId) ?? null;
+}
+
+export async function findUserByEmail(email: string): Promise<User | null> {
+  const data = await readPlatform();
+  const normalized = email.trim().toLowerCase();
+  return (
+    data.users.find((u) => u.email.trim().toLowerCase() === normalized) ?? null
+  );
+}
+
+export async function findUserByPhone(phone: string): Promise<User | null> {
+  const data = await readPlatform();
+  const normalized = phone.replace(/\D/g, "");
+  return (
+    data.users.find(
+      (u) => u.phone && u.phone.replace(/\D/g, "") === normalized
+    ) ?? null
+  );
+}
+
+export async function linkAuthUser(input: {
+  authUserId: string;
+  platformUserId: string;
+  phone?: string;
+}): Promise<User | null> {
+  const data = await readPlatform();
+  const index = data.users.findIndex((u) => u.id === input.platformUserId);
+  if (index < 0) return null;
+
+  data.users[index] = {
+    ...data.users[index],
+    authUserId: input.authUserId,
+    phone: input.phone ?? data.users[index].phone,
+  };
+  await writePlatform(data);
+  return data.users[index];
+}
+
+export async function provisionAuthUser(input: {
+  authUserId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  role: UserRole;
+  orgId?: string;
+  teamId?: string;
+}): Promise<User | null> {
+  const existing = await findUserByAuthUserId(input.authUserId);
+  if (existing) return existing;
+
+  if (input.email) {
+    const byEmail = await findUserByEmail(input.email);
+    if (byEmail) {
+      return linkAuthUser({
+        authUserId: input.authUserId,
+        platformUserId: byEmail.id,
+        phone: input.phone,
+      });
+    }
+  }
+
+  if (input.phone) {
+    const byPhone = await findUserByPhone(input.phone);
+    if (byPhone) {
+      return linkAuthUser({
+        authUserId: input.authUserId,
+        platformUserId: byPhone.id,
+        phone: input.phone,
+      });
+    }
+  }
+
+  return createUser({
+    orgId: input.orgId ?? DEFAULT_SIGNUP_ORG_ID,
+    teamId: input.teamId ?? DEFAULT_SIGNUP_TEAM_ID,
+    name: input.name,
+    email: input.email?.trim() || `${input.authUserId}@competencyflow.local`,
+    role: input.role,
+  }).then(async (user) => {
+    if (!user) return null;
+    return linkAuthUser({
+      authUserId: input.authUserId,
+      platformUserId: user.id,
+      phone: input.phone,
+    });
+  });
+}
+
 export async function createUser(input: {
   orgId: string;
   teamId: string;
@@ -702,6 +798,8 @@ export async function createUser(input: {
   role: UserRole;
   jobTitle?: string;
   priorityCategories?: string[];
+  phone?: string;
+  authUserId?: string;
 }): Promise<User | null> {
   const data = await readPlatform();
   if (!data.organizations.some((o) => o.id === input.orgId)) return null;
@@ -713,6 +811,8 @@ export async function createUser(input: {
     teamId: input.teamId,
     name: input.name.trim(),
     email: input.email.trim(),
+    phone: input.phone,
+    authUserId: input.authUserId,
     role: input.role,
     avatarInitials: initialsFromName(input.name) || "??",
     jobTitle: input.jobTitle,

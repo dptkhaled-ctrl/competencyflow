@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { AppProvider } from "@/components/providers/app-provider";
+import { AuthSync } from "@/components/providers/auth-sync";
 import { PlatformSync } from "@/components/providers/platform-sync";
 import "./globals.css";
 
@@ -26,6 +27,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans">
         <AppProvider>
           <PlatformSync />
+          <AuthSync />
           {children}
         </AppProvider>
       </body>

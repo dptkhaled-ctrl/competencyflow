@@ -38,6 +38,9 @@ export interface User {
   teamId: string;
   name: string;
   email: string;
+  phone?: string;
+  /** Links this platform user to a Supabase auth.users id */
+  authUserId?: string;
   role: UserRole;
   avatarInitials: string;
   jobTitle?: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, Users } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
@@ -18,12 +18,22 @@ import { useCurrentOrg } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 
 export function RoleSwitcher() {
+  const [hideForAuth, setHideForAuth] = useState(false);
   const currentUserId = useAppStore((s) => s.currentUserId);
   const users = useAppStore((s) => s.users);
   const organizations = useAppStore((s) => s.organizations || []);
   const setCurrentUser = useAppStore((s) => s.setCurrentUser);
   const staffLabel = "staff";
   const managerLabel = "manager";
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.configured && data.authenticated) setHideForAuth(true);
+      })
+      .catch(() => {});
+  }, []);
 
   // Recover stale currentUserId (e.g. deleted user or old localStorage id) in an effect,
   // never during render — avoids maximum update depth errors.
@@ -35,6 +45,8 @@ export function RoleSwitcher() {
       if (fallback) setCurrentUser(fallback.id);
     }
   }, [currentUserId, users, setCurrentUser]);
+
+  if (hideForAuth) return null;
 
   const currentUser =
     users.find((u) => u.id === currentUserId) ??

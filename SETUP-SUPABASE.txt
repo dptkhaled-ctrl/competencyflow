@@ -1,0 +1,66 @@
+SUPABASE AUTH — DEAD SIMPLE SETUP
+=================================
+
+Do this once. Takes about 10 minutes.
+
+STEP 1 — CREATE A FREE SUPABASE PROJECT
+---------------------------------------
+1. Go to https://supabase.com and sign up (free)
+2. Click "New project"
+3. Pick any name (e.g. competencyflow) and a database password
+4. Wait until the project is ready
+
+
+STEP 2 — COPY YOUR KEYS
+-------------------------
+1. In Supabase, go to Project Settings (gear icon) → API
+2. Copy these two values:
+
+   Project URL          →  NEXT_PUBLIC_SUPABASE_URL
+   anon public key      →  NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+3. Paste them into your .env.local file (in the app folder)
+
+
+STEP 3 — TURN ON EMAIL SIGN-UP
+-------------------------------
+1. In Supabase: Authentication → Providers → Email
+2. Make sure Email is ON
+3. For easiest testing: turn OFF "Confirm email" (you can turn it back on later)
+
+
+STEP 4 — TURN ON PHONE SIGN-IN (OPTIONAL)
+-----------------------------------------
+1. Authentication → Providers → Phone
+2. Turn Phone ON
+3. Supabase will walk you through SMS setup (Twilio, etc.)
+   Skip this step if you only want email for now.
+
+
+STEP 5 — ADD REDIRECT URL (FOR EMAIL LINKS)
+-------------------------------------------
+1. Authentication → URL Configuration
+2. Add your site URL, e.g.:
+   https://competencyflow.vercel.app
+3. Add redirect URL:
+   https://competencyflow.vercel.app/auth/callback
+
+
+STEP 6 — ADD KEYS TO VERCEL
+---------------------------
+1. Go to vercel.com → your competencyflow project → Settings → Environment Variables
+2. Add:
+   NEXT_PUBLIC_SUPABASE_URL     = (your Project URL)
+   NEXT_PUBLIC_SUPABASE_ANON_KEY = (your anon key)
+3. Redeploy (or tell the AI assistant to redeploy)
+
+
+THAT'S IT
+---------
+Users go to /login and can:
+- Sign up with email + password
+- Sign in with email + password
+- Sign in with phone + text code (if you enabled phone)
+
+New users are added to the demo SNF organization automatically.
+Managers can still add people in Admin → People & Orgs.

@@ -2,8 +2,10 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, GraduationCap, LayoutDashboard, Shield, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { BookOpen, GraduationCap, LayoutDashboard, LogIn, Shield, Users } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAppStore } from "@/lib/store/app-store";
 
@@ -36,11 +38,30 @@ function WelcomeScreen() {
           </h1>
           <p className="mx-auto mt-3 max-w-lg text-slate-600">
             Structured micro-lessons and quizzes for SNFs, Behavioral Health, and Home Health.
-            Managers get visibility into staff questions and progress. Pick a demo person — no login required.
+            Managers get visibility into staff questions and progress.
           </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/login"
+              className={cn(buttonVariants({ size: "lg" }), "gap-2")}
+            >
+              <LogIn className="h-4 w-4" />
+              Sign in or create account
+            </Link>
+            <Link
+              href="/login"
+              className={buttonVariants({ variant: "outline", size: "lg" })}
+            >
+              Use email or phone
+            </Link>
+          </div>
         </div>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2">
+        <p className="mt-8 text-center text-sm font-medium text-muted-foreground">
+          Or try the demo without signing in
+        </p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Card
             className="cursor-pointer border-primary/20 transition-shadow hover:shadow-md"
             onClick={() => startAs("user-snf-1")}

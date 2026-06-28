@@ -4,6 +4,7 @@ import Link from "next/link";
 import { GraduationCap } from "lucide-react";
 import { HomeLink } from "@/components/layout/home-link";
 import { RoleSwitcher } from "@/components/layout/role-switcher";
+import { UserMenu } from "@/components/layout/user-menu";
 import { useCurrentUser } from "@/lib/store/hooks";
 
 export function AppHeader() {
@@ -21,6 +22,7 @@ export function AppHeader() {
         </Link>
         <div className="flex items-center gap-3">
           <HomeLink />
+          <UserMenu />
           <RoleSwitcher />
         </div>
       </div>
