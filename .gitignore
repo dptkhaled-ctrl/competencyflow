@@ -34,8 +34,10 @@ yarn-error.log*
 .env
 .env*.local
 
-# local GitHub token (never commit)
+# local deploy secrets (never commit)
 .github-token
+.vercel-token
+.vercel-admin-password
 
 # vercel
 .vercel
