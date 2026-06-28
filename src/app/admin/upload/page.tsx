@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -28,7 +28,7 @@ import { getCategoriesForOrgType } from "@/lib/competency/domains";
 const ACCEPTED =
   ".pdf,.docx,.pptx,.txt,.md,.png,.jpg,.jpeg,.gif,.webp";
 
-export default function AdminUploadPage() {
+function AdminUploadPageContent() {
   const searchParams = useSearchParams();
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [orgId, setOrgId] = useState("");
@@ -502,5 +502,19 @@ export default function AdminUploadPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminUploadPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-2xl px-4 py-8 text-muted-foreground">
+          Loading upload…
+        </div>
+      }
+    >
+      <AdminUploadPageContent />
+    </Suspense>
   );
 }
