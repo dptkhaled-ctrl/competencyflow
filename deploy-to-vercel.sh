@@ -53,6 +53,13 @@ if [ -f .env.local ]; then
     npx vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY preview --token "$TOKEN" --yes --force --value "$SUPABASE_KEY" 2>/dev/null || true
   fi
 
+  SERVICE_KEY=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' .env.local | cut -d= -f2- | tr -d '[:space:]' || true)
+  if [ -n "$SERVICE_KEY" ]; then
+    echo "Setting Supabase service role on Vercel..."
+    npx vercel env add SUPABASE_SERVICE_ROLE_KEY production --token "$TOKEN" --yes --force --value "$SERVICE_KEY" 2>/dev/null || true
+    npx vercel env add SUPABASE_SERVICE_ROLE_KEY preview --token "$TOKEN" --yes --force --value "$SERVICE_KEY" 2>/dev/null || true
+  fi
+
   OPENAI_KEY=$(grep '^OPENAI_API_KEY=' .env.local | cut -d= -f2- | tr -d '[:space:]' || true)
   if [ -n "$OPENAI_KEY" ] && [ "$OPENAI_KEY" != "sk-proj-your-openai-key-here" ]; then
     echo "Setting OpenAI key on Vercel..."
