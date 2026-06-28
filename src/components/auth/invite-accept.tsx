@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Building2, GraduationCap, Loader2, Mail, Shield } from "lucide-react";
+import { Building2, GraduationCap, Loader2, Lock, Mail, Shield } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 type InviteInfo = {
@@ -30,10 +32,10 @@ export function InviteAccept({ token }: { token: string }) {
   const searchParams = useSearchParams();
   const [invite, setInvite] = useState<InviteInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const urlError = searchParams.get("error");
@@ -54,28 +56,28 @@ export function InviteAccept({ token }: { token: string }) {
       .finally(() => setLoading(false));
   }, [token]);
 
-  const activateNow = async () => {
-    setSending(true);
+  const completeSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
     setError(null);
-    setMessage(null);
+
     try {
-      const res = await fetch(`/api/invites/${token}/activate`, {
+      const res = await fetch(`/api/invites/${token}/setup`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, confirmPassword }),
       });
       const data = await parseJsonSafe(res);
+
       if (!res.ok) {
-        throw new Error(String(data.error ?? "Could not activate account"));
+        throw new Error(String(data.error ?? "Could not complete setup"));
       }
-      const redirectUrl = String(data.redirectUrl ?? "");
-      if (!redirectUrl) {
-        throw new Error("No activation link returned");
-      }
-      setFallbackUrl(redirectUrl);
-      setMessage("Signing you in…");
-      window.location.replace(redirectUrl);
+
+      const redirectTo = String(data.redirectTo ?? "/");
+      window.location.assign(redirectTo);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to activate");
-      setSending(false);
+      setError(err instanceof Error ? err.message : "Failed to set up account");
+      setSubmitting(false);
     }
   };
 
@@ -116,13 +118,13 @@ export function InviteAccept({ token }: { token: string }) {
           </div>
           <h1 className="text-3xl font-bold text-slate-900">You&apos;re invited</h1>
           <p className="mt-2 text-slate-600">
-            Welcome to CompetencyFlow — compliance training built for healthcare teams.
+            Create your password below — then you&apos;re in.
           </p>
         </div>
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="text-lg">Account activation</CardTitle>
+            <CardTitle className="text-lg">Set up your account</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="rounded-lg bg-muted/60 p-4 space-y-2">
@@ -146,34 +148,54 @@ export function InviteAccept({ token }: { token: string }) {
               )}
             </div>
 
-            <p className="text-muted-foreground">
-              Click below to activate your account. You&apos;ll be signed in automatically —
-              no password to remember.
-            </p>
-
-            <Button className="w-full" onClick={() => void activateNow()} disabled={sending}>
-              {sending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Activating…
-                </>
-              ) : (
-                "Activate my account"
-              )}
-            </Button>
-
-            {message && (
-              <div className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800 space-y-2">
-                <p>{message}</p>
-                {fallbackUrl && (
-                  <p>
-                    <a href={fallbackUrl} className="underline font-medium">
-                      Click here if nothing happens
-                    </a>
-                  </p>
-                )}
+            <form onSubmit={completeSetup} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="password">Create password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    className="pl-8"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    minLength={8}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
               </div>
-            )}
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    className="pl-8"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter password"
+                    minLength={8}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Creating your account…
+                  </>
+                ) : (
+                  "Create account & continue"
+                )}
+              </Button>
+            </form>
+
             {error && (
               <p className="rounded-lg bg-red-50 px-3 py-2 text-red-800">{error}</p>
             )}
@@ -182,7 +204,7 @@ export function InviteAccept({ token }: { token: string }) {
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           <Link href="/login" className={cn(buttonVariants({ variant: "ghost" }))}>
-            Already activated? Sign in
+            Already set up? Sign in
           </Link>
         </p>
       </div>

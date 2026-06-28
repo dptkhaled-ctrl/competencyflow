@@ -107,10 +107,10 @@ export function inviteEmailContent(input: {
     <div style="font-family: system-ui, sans-serif; max-width: 520px; line-height: 1.5;">
       <p>${greeting}</p>
       ${orgLine}
-      <p>Click the button below to activate your account. This link expires in 14 days.</p>
+      <p>Click below to open your invite, create a password, and get started. This link expires in 14 days.</p>
       <p style="margin: 24px 0;">
         <a href="${input.activationLink}" style="background:#d97706;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;">
-          Accept invitation
+          Set up my account
         </a>
       </p>
       <p style="font-size:12px;color:#666;">Or copy this link: ${input.activationLink}</p>

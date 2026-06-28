@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { GraduationCap, Loader2, Mail } from "lucide-react";
+import { GraduationCap, Loader2, Lock, Mail } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,8 +21,8 @@ async function parseJsonSafe(res: Response) {
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isConfigured =
@@ -33,29 +33,26 @@ export function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setMessage(null);
 
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
       });
       const data = await parseJsonSafe(res);
 
       if (!res.ok) {
-        throw new Error(String(data.error ?? "Could not send login link"));
+        throw new Error(String(data.error ?? "Could not sign in"));
       }
 
-      setMessage(
-        String(
-          data.message ??
-            "Check your email for a secure sign-in link. It may take a minute to arrive."
-        )
-      );
+      const redirectTo = String(data.redirectTo ?? "/");
+      window.location.assign(redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
       setLoading(false);
     }
   };
@@ -87,7 +84,7 @@ export function LoginForm() {
           </Link>
           <h1 className="mt-6 text-3xl font-bold">Sign in</h1>
           <p className="mt-2 text-sm text-slate-300">
-            We&apos;ll email you a secure magic link. No password needed.
+            Use the email and password you set when you accepted your invite.
           </p>
         </div>
 
@@ -108,6 +105,25 @@ export function LoginForm() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@organization.com"
                     required
+                    autoComplete="email"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-slate-200">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                  <Input
+                    id="password"
+                    type="password"
+                    className="border-white/10 bg-white/10 pl-8 text-white placeholder:text-slate-400"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Your password"
+                    required
+                    autoComplete="current-password"
                   />
                 </div>
               </div>
@@ -115,19 +131,14 @@ export function LoginForm() {
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Sending link…
+                    Signing in…
                   </>
                 ) : (
-                  "Email me a sign-in link"
+                  "Sign in"
                 )}
               </Button>
             </form>
 
-            {message && (
-              <p className="mt-4 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-                {message}
-              </p>
-            )}
             {error && (
               <p className="mt-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-200">
                 {error}
@@ -135,8 +146,8 @@ export function LoginForm() {
             )}
 
             <p className="mt-6 text-center text-xs text-slate-400">
-              New to CompetencyFlow? Your manager or administrator will send you
-              an invite email with a link to activate your account.
+              First time here? Open the invite link from your administrator to
+              create your password.
             </p>
           </CardContent>
         </Card>

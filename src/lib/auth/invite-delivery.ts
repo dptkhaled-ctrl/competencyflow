@@ -29,7 +29,7 @@ export async function deliverInvite(
       emailSent: true,
       inviteLink,
       magicLink: inviteLink,
-      message: `Email sent to ${invite.email}. They should click the link and press "Activate my account". Check spam if it doesn't arrive within a minute.`,
+      message: `Email sent to ${invite.email}. They'll open the link, create a password, and land in the app. Check spam if it doesn't arrive within a minute.`,
       invite,
     };
   }
