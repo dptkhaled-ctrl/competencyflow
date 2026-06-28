@@ -1,0 +1,10 @@
+COMPETENCYFLOW — ADMIN LOGIN
+============================
+
+Admin login page:
+  https://competencyflow.vercel.app/admin/login
+
+Password:
+  CompetencyFlow2026!
+
+(Stored in .env.local as ADMIN_PASSWORD)

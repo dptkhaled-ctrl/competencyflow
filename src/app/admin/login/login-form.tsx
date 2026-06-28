@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Lock, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function AdminLoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -20,20 +19,27 @@ export function AdminLoginForm() {
     setLoading(true);
     setError("");
 
-    const res = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+        credentials: "same-origin",
+      });
 
-    if (!res.ok) {
-      setError("Wrong password. See FOUNDER-GUIDE.txt in your project folder.");
+      if (!res.ok) {
+        setError("Wrong password. See ADMIN-LOGIN.txt in your project folder.");
+        return;
+      }
+
+      const from = searchParams.get("from") || "/admin";
+      // Full page load so the session cookie is applied before admin pages load
+      window.location.assign(from);
+    } catch {
+      setError("Could not reach the server. Check your connection and try again.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const from = searchParams.get("from") || "/admin";
-    router.push(from);
   };
 
   return (

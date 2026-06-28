@@ -19,6 +19,11 @@ function isPublicPath(pathname: string) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Admin login API — skip Supabase session refresh for speed
+  if (pathname === "/api/admin/login") {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
     const session = request.cookies.get(ADMIN_COOKIE);
     if (session?.value !== "authenticated") {
