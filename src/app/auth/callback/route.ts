@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { acceptInvite, findUserByAuthUserId } from "@/lib/server/data-store";
+import {
+  acceptInvite,
+  findUserByAuthUserId,
+  findUserByEmail,
+  linkAuthUser,
+} from "@/lib/server/data-store";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -35,7 +40,16 @@ export async function GET(request: Request) {
       await acceptInvite(inviteToken, user.id, user.email ?? undefined);
     }
 
-    const platformUser = await findUserByAuthUserId(user.id);
+    let platformUser = await findUserByAuthUserId(user.id);
+    if (!platformUser && user.email) {
+      const byEmail = await findUserByEmail(user.email);
+      if (byEmail) {
+        platformUser = await linkAuthUser({
+          authUserId: user.id,
+          platformUserId: byEmail.id,
+        });
+      }
+    }
     if (platformUser) {
       const dest = platformUser.role === "manager" ? "/manager" : "/staff";
       return NextResponse.redirect(`${origin}${dest}`);

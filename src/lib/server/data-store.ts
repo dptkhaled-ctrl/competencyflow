@@ -48,8 +48,12 @@ export async function readPlatform(): Promise<PlatformData> {
     }
     return migrated;
   } catch {
-    const initial = createInitialPlatformData();
-    await writePlatform(initial);
+    const initial = migratePlatformData(createInitialPlatformData());
+    try {
+      await writePlatform(initial);
+    } catch {
+      // Serverless cold start — seed in memory if /tmp not ready yet.
+    }
     return initial;
   }
 }

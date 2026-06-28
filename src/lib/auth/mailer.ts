@@ -78,15 +78,43 @@ export async function sendLoginMagicLink(email: string): Promise<{
     return { ok: false, error: "Supabase not configured" };
   }
 
+  const normalized = email.trim().toLowerCase();
+  const redirectTo = `${siteUrl()}/auth/callback`;
+
   const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey());
-  const { error } = await supabase.auth.signInWithOtp({
-    email: email.trim().toLowerCase(),
+
+  // Existing Supabase auth user
+  let { error } = await supabase.auth.signInWithOtp({
+    email: normalized,
     options: {
       shouldCreateUser: false,
-      emailRedirectTo: `${siteUrl()}/auth/callback`,
+      emailRedirectTo: redirectTo,
     },
   });
 
-  if (error) return { ok: false, error: error.message };
+  // Platform user not yet in Supabase auth — send magic link to create + link on callback
+  if (
+    error &&
+    (error.code === "otp_disabled" ||
+      error.message.toLowerCase().includes("signups not allowed"))
+  ) {
+    const retry = await supabase.auth.signInWithOtp({
+      email: normalized,
+      options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
+    });
+    error = retry.error;
+  }
+
+  if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes("rate limit")) {
+      return {
+        ok: false,
+        error: "Too many emails sent. Wait a few minutes and try again.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
   return { ok: true };
 }
